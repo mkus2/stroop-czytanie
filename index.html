@@ -1,216 +1,227 @@
 <!doctype html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stroop (PL) — 10 trening + 50 test</title>
-
-  <!-- PROSTE UI ŁADOWANIA / DIAGNOSTYKA -->
-  <style>
-    html,body{height:100%}
-    body { margin:0; background:#111; color:#eee; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; display:flex; align-items:center; justify-content:center; }
-    .wrap { max-width: 860px; padding: 24px; text-align:center; }
-    .muted{color:#bbb}
-    .big{font-size:56px; line-height:1.2}
-    .fix{font-size:48px; color:#999}
-    .kbd{ background:#222; border-radius:8px; padding:6px 10px; margin:2px; display:inline-block; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stroop (PL) — 10 trening + 50 test (bez bibliotek)</title>
+<style>
+  html,body{height:100%} body{margin:0;background:#111;color:#eee;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center}
+  #app{max-width:900px;padding:24px;text-align:center}
+  h1,h2{margin:0 0 12px} p{line-height:1.5}
+  .muted{color:#bbb} .big{font-size:56px;line-height:1.2} .fix{font-size:48px;color:#999}
+  .kbd{background:#222;border-radius:8px;padding:6px 10px;margin:2px;display:inline-block}
+  .btn{background:#2d6cdf;color:#fff;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:16px}
+  .row{margin:18px 0}
+  input[type=text]{font-size:18px;padding:8px 10px;border-radius:8px;border:1px solid #333;background:#000;color:#fff;letter-spacing:2px;text-transform:uppercase;text-align:center}
+</style>
 </head>
 <body>
-  <div class="wrap" id="app">
-    <h2>Ładuję test…</h2>
-    <p class="muted">Jeśli to trwa dłużej niż 5–10 sekund, odśwież stronę (Ctrl/Cmd+R).<br/>Upewnij się, że internet nie blokuje CDN.</p>
-  </div>
+<div id="app"></div>
 
-  <!-- jsPsych z jsDelivr (stabilniejszy na Pages) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspsych@7.3.4/css/jspsych.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/jspsych@7.3.4/dist/jspsych.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@jspsych/plugin-html-button-response@1.2.0"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@jspsych/plugin-html-keyboard-response@1.2.0"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@jspsych/plugin-survey-text@1.2.0"></script>
+<script>
+// ================== KONFIG ==================
+const CONFIG = {
+  TRAIN_N: 10,
+  TEST_N: 50,
+  MAX_RT: 2000,  // limit odpowiedzi (ms)
+  ITI: 200,      // przerwa (ms)
+  FIX: 300,      // fiksacja (ms)
+  ENDPOINT_URL: "" // <- opcjonalny URL Google Apps Script (możesz dodać później)
+};
 
-  <script>
-  // Jeśli biblioteka by się nie wczytała, pokaż komunikat zamiast „czarnego ekranu”
-  const app = document.getElementById('app');
-  function showError(msg){
-    app.innerHTML = '<h2>Ups — nie mogę uruchomić testu</h2><p class="muted">'+msg+'</p><p class="muted">Spróbuj odświeżyć stronę lub otworzyć w innej przeglądarce/sieci.</p>';
+const COLORS = [
+  {word:"CZERWONY", css:"red",    key:"c", idx:1},
+  {word:"ZIELONY",  css:"green",  key:"z", idx:2},
+  {word:"NIEBIESKI",css:"blue",   key:"n", idx:3},
+  {word:"FIOLETOWY",css:"purple", key:"f", idx:4},
+  {word:"BRĄZOWY",  css:"brown",  key:"b", idx:5}
+];
+const INCONG_MAP = {
+  "CZERWONY":  ["green","blue","purple","brown"],
+  "ZIELONY":   ["red","blue","purple","brown"],
+  "NIEBIESKI": ["red","green","purple","brown"],
+  "FIOLETOWY": ["red","green","blue","brown"],
+  "BRĄZOWY":   ["red","green","blue","purple"]
+};
+
+// =============== UTIL ===============
+const app = document.getElementById('app');
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function makeTrial(congruent=true){
+  const color = pick(COLORS);
+  const word = color.word;
+  let ink = color.css, correct_key = color.key, correct_idx = color.idx, congr = 1;
+  if(!congruent){
+    ink = pick(INCONG_MAP[word]);
+    const byInk = COLORS.find(c=>c.css===ink);
+    correct_key = byInk.key; correct_idx = byInk.idx; congr = 0;
+  }
+  return { stim_word:word, ink_color:ink, congruency:congr, correct_key, correct_idx };
+}
+function buildTrials(n){
+  const half = Math.floor(n/2);
+  const arr = [];
+  for(let i=0;i<half;i++) arr.push(makeTrial(true));
+  for(let i=0;i<n-half;i++) arr.push(makeTrial(false));
+  return shuffle(arr);
+}
+function toCSV(rows){
+  if(!rows.length) return "no_data\n";
+  const header = Object.keys(rows[0]);
+  const lines = [header.join(",")];
+  for(const r of rows){
+    const line = header.map(h => {
+      const v = (r[h] ?? "").toString().replace(/"/g,'""');
+      return /[",\n]/.test(v) ? `"${v}"` : v;
+    }).join(",");
+    lines.push(line);
+  }
+  return lines.join("\n");
+}
+function downloadCSV(filename, csv){
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+// =============== APLIKACJA ===============
+let PID = "";                 // inicjały
+const LOG = [];               // wiersze z prób
+let keyHandler = null;
+
+function screenIntro(){
+  app.innerHTML = `
+    <h2>Badanie Stroopa (PL)</h2>
+    <div class="row"><p>Wpisz swoje inicjały (2 litery, np. AK) i naciśnij „Dalej”.</p>
+      <input id="pid" type="text" maxlength="2" placeholder="AK" autofocus>
+    </div>
+    <div class="row">
+      <button class="btn" id="next1">Dalej</button>
+    </div>`;
+  document.getElementById('next1').onclick = ()=>{
+    const v = (document.getElementById('pid').value||"").trim().toUpperCase();
+    if(!/^[A-ZĄĆĘŁŃÓŚŹŻ]{2}$/.test(v)) { alert("Podaj dokładnie 2 litery."); return; }
+    PID = v;
+    screenInstr();
+  };
+}
+
+function screenInstr(){
+  app.innerHTML = `
+    <p>Reaguj na <b>KOLOR CZCIONKI</b> (nie na słowo).</p>
+    <p>Klawisze: <span class="kbd">C</span>=Czerwony, <span class="kbd">Z</span>=Zielony,
+       <span class="kbd">N</span>=Niebieski, <span class="kbd">F</span>=Fioletowy, <span class="kbd">B</span>=Brązowy.</p>
+    <p>Najpierw trening (10 prób), potem test (50 prób). Limit odpowiedzi: ${CONFIG.MAX_RT/1000}s.</p>
+    <div class="row"><button class="btn" id="startTrain">Zaczynam trening</button></div>`;
+  document.getElementById('startTrain').onclick = ()=> runBlock("training", CONFIG.TRAIN_N);
+}
+
+async function runBlock(phase, ntrials){
+  const trials = buildTrials(ntrials);
+  for(let i=0;i<trials.length;i++){
+    // fiksacja
+    app.innerHTML = `<div class="fix">+</div>`;
+    await sleep(CONFIG.FIX);
+
+    // próba
+    const t = trials[i];
+    const start = performance.now();
+    app.innerHTML = `<div class="big" style="color:${t.ink_color};">${t.stim_word}</div>`;
+
+    const result = await new Promise(resolve=>{
+      let resolved = false;
+      function onKey(e){
+        const k = (e.key||"").toLowerCase();
+        if(["c","z","n","f","b"].includes(k)){
+          const rt = performance.now() - start;
+          const correct = (k === t.correct_key);
+          cleanup();
+          resolved = true;
+          resolve({key:k, status: correct?1:2, rt: Math.round(rt)});
+        }
+      }
+      function onTimeout(){
+        if(!resolved){
+          cleanup();
+          resolve({key:"", status:3, rt: CONFIG.MAX_RT});
+        }
+      }
+      function cleanup(){
+        window.removeEventListener('keydown', onKey);
+        clearTimeout(timer);
+      }
+      window.addEventListener('keydown', onKey);
+      const timer = setTimeout(onTimeout, CONFIG.MAX_RT);
+    });
+
+    LOG.push({
+      pid: PID,
+      phase,
+      stim_word: t.stim_word,
+      ink_color: t.ink_color,
+      congruency: t.congruency,       // 1/0
+      correct_key: t.correct_key,     // c/z/n/f/b
+      correct_idx: t.correct_idx,     // 1..5
+      key: result.key,
+      status: result.status,          // 1 correct, 2 wrong, 3 timeout
+      rt: result.rt                   // ms
+    });
+
+    // przerwa między próbami
+    app.innerHTML = ``;
+    await sleep(CONFIG.ITI);
   }
 
-  window.addEventListener('load', function(){
-    // Daj chwilę na dociągnięcie bibliotek (defer)
-    setTimeout(function(){
-      if (typeof initJsPsych === 'undefined') {
-        showError('Nie załadowała się biblioteka jsPsych (CDN).');
+  // po bloku:
+  if(phase === "training"){
+    app.innerHTML = `<p>Trening zakończony. Teraz część właściwa (${CONFIG.TEST_N} prób).</p>
+                     <div class="row"><button class="btn" id="startMain">Start testu</button></div>`;
+    document.getElementById('startMain').onclick = ()=> runBlock("main", CONFIG.TEST_N);
+  } else {
+    finish();
+  }
+}
+
+async function finish(){
+  // prosty feedback
+  const main = LOG.filter(r=>r.phase==="main");
+  const acc = main.filter(r=>r.status===1).length / (main.length||1);
+  app.innerHTML = `<h2>Koniec</h2>
+    <p>Dokładność (test): ${(acc*100).toFixed(1)}%</p>
+    <p class="muted">Trwa zapisywanie wyników…</p>`;
+
+  // wysyłka do Google Sheet (opcjonalnie)
+  if(CONFIG.ENDPOINT_URL){
+    try{
+      const resp = await fetch(CONFIG.ENDPOINT_URL, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({payload: LOG})
+      });
+      if(resp.ok){
+        app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Dane przesłane. Możesz zamknąć okno.</p>`;
         return;
       }
+    }catch(e){
+      // jeśli błąd, wypadamy na CSV
+    }
+  }
 
-      // ====== KONFIG ======
-      const CONFIG = {
-        TRAIN_N: 10,
-        TEST_N: 50,
-        MAX_RT: 2000,
-        ITI: 200,
-        FIX: 300,
-        COLORS: [
-          {word:"CZERWONY", css:"red",    key:"c", idx:1},
-          {word:"ZIELONY",  css:"green",  key:"z", idx:2},
-          {word:"NIEBIESKI",css:"blue",   key:"n", idx:3},
-          {word:"FIOLETOWY",css:"purple", key:"f", idx:4},
-          {word:"BRĄZOWY",  css:"brown",  key:"b", idx:5}
-        ],
-        INCONG_MAP: {
-          "CZERWONY":  ["green","blue","purple","brown"],
-          "ZIELONY":   ["red","blue","purple","brown"],
-          "NIEBIESKI": ["red","green","purple","brown"],
-          "FIOLETOWY": ["red","green","blue","brown"],
-          "BRĄZOWY":   ["red","green","blue","purple"]
-        },
-        ENDPOINT_URL: ""  // <- wklej tu (opcjonalnie) URL Web App z Google Apps Script
-      };
+  // fallback: CSV do pobrania
+  const csv = toCSV(LOG);
+  const fname = `stroop_pl_${PID}_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`;
+  downloadCSV(fname, csv);
+  app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Pobrano plik z wynikami.</p>`;
+}
 
-      function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-      function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-
-      function makeTrial(congruent=true){
-        const color = pick(CONFIG.COLORS);
-        const word = color.word;
-        let ink = color.css, correct_key = color.key, correct_idx = color.idx, congr = 1;
-        if(!congruent){
-          ink = pick(CONFIG.INCONG_MAP[word]);
-          const byInk = CONFIG.COLORS.find(c=>c.css===ink);
-          correct_key = byInk.key; correct_idx = byInk.idx; congr = 0;
-        }
-        return { stim_word: word, ink_color: ink, congruency: congr, correct_key, correct_idx };
-      }
-      function buildTrials(n){
-        const half = Math.floor(n/2);
-        const arr = [];
-        for(let i=0;i<half;i++) arr.push(makeTrial(true));
-        for(let i=0;i<n-half;i++) arr.push(makeTrial(false));
-        return shuffle(arr);
-      }
-      function toCSV(rows){
-        if(!rows.length) return "no_data\n";
-        const header = Object.keys(rows[0]);
-        const lines = [header.join(",")];
-        for(const r of rows){
-          lines.push(header.map(h => (""+r[h]).replace(/"/g,'""')).map(v => /[",\n]/.test(v) ? `"${v}"` : v).join(","));
-        }
-        return lines.join("\n");
-      }
-
-      const TRIALS_LOG = [];
-      const jsPsych = initJsPsych({
-        on_finish: async function(){
-          const csv = toCSV(TRIALS_LOG);
-          if(CONFIG.ENDPOINT_URL){
-            try{
-              const resp = await fetch(CONFIG.ENDPOINT_URL, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({payload: TRIALS_LOG}) });
-              if(resp.ok){
-                app.innerHTML = '<h2>Dziękujemy!</h2><p class="muted">Dane zostały przesłane — możesz zamknąć to okno.</p>';
-                return;
-              } else { throw new Error("HTTP "+resp.status); }
-            }catch(e){
-              // fallback poniżej
-            }
-          }
-          const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-          const a = document.createElement("a");
-          const pid = (window.__PID || "NN").toUpperCase();
-          a.href = URL.createObjectURL(blob);
-          a.download = `stroop_pl_${pid}_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`;
-          document.body.appendChild(a); a.click(); a.remove();
-          app.innerHTML = '<h2>Dziękujemy!</h2><p class="muted">Pobrano plik z wynikami.</p>';
-        }
-      });
-
-      // ====== TIMELINE ======
-      const initials = {
-        type: jsPsychSurveyText,
-        preamble: '<h2>Badanie Stroopa (PL)</h2><p>Wpisz swoje inicjały (2 litery, np. AK), a następnie kliknij <b>Dalej</b>.</p>',
-        questions: [{prompt:'Inicjały (2 litery)', required:true, placeholder:"AK", name:"initials", columns:4}],
-        button_label: "Dalej",
-        on_finish: d => { window.__PID = (d.response.initials||"").trim().toUpperCase(); }
-      };
-
-      const instr = {
-        type: jsPsychHtmlButtonResponse,
-        stimulus: `<p>Reaguj na <b>KOLOR CZCIONKI</b> (nie na słowo).</p>
-                   <p>Klawisze: <span class="kbd">C</span>=Czerwony, <span class="kbd">Z</span>=Zielony,
-                   <span class="kbd">N</span>=Niebieski, <span class="kbd">F</span>=Fioletowy, <span class="kbd">B</span>=Brązowy.</p>
-                   <p>Trening: ${CONFIG.TRAIN_N} prób, Test: ${CONFIG.TEST_N} prób. Limit: ${CONFIG.MAX_RT/1000}s.</p>`,
-        choices: ["Zaczynam trening"]
-      };
-
-      const fixation = { type: jsPsychHtmlKeyboardResponse, stimulus:'<div class="fix">+</div>', choices:"NO_KEYS", trial_duration: CONFIG.FIX };
-
-      function stroopBlock(label, ntrials){
-        const trials = buildTrials(ntrials).map(t=>({t}));
-        return {
-          timeline: [
-            fixation,
-            {
-              type: jsPsychHtmlKeyboardResponse,
-              stimulus: () => {
-                const t = jsPsych.timelineVariable('t');
-                return `<div class="big" style="color:${t.ink_color};">${t.stim_word}</div>`;
-              },
-              choices: ["c","z","n","f","b"],
-              trial_duration: CONFIG.MAX_RT,
-              data: () => {
-                const t = jsPsych.timelineVariable('t');
-                return { phase: label, stim_word:t.stim_word, ink_color:t.ink_color, congruency:t.congruency, correct_key:t.correct_key, correct_idx:t.correct_idx, pid: (window.__PID||"") };
-              },
-              on_finish: data => {
-                const correct = data.response ? jsPsych.pluginAPI.compareKeys(data.response, data.correct_key) : false;
-                const status = data.response ? (correct?1:2) : 3;
-                TRIALS_LOG.push({
-                  pid: data.pid,
-                  phase: data.phase,
-                  stim_word: data.stim_word,
-                  ink_color: data.ink_color,
-                  congruency: data.congruency,
-                  correct_key: data.correct_key,
-                  correct_idx: data.correct_idx,
-                  key: data.response || "",
-                  status: status,
-                  rt: data.rt || CONFIG.MAX_RT
-                });
-              }
-            },
-            { type: jsPsychHtmlKeyboardResponse, stimulus:"", choices:"NO_KEYS", trial_duration: CONFIG.ITI }
-          ],
-          timeline_variables: trials,
-          randomize_order: true
-        };
-      }
-
-      const afterTraining = {
-        type: jsPsychHtmlButtonResponse,
-        stimulus: `<p>Trening zakończony. Teraz część właściwa (${CONFIG.TEST_N} prób).</p>`,
-        choices: ["Start testu"]
-      };
-
-      const debrief = {
-        type: jsPsychHtmlButtonResponse,
-        stimulus: () => {
-          const n = TRIALS_LOG.filter(r=>r.phase==='main').length;
-          const acc = TRIALS_LOG.filter(r=>r.phase==='main' && r.status===1).length / (n||1);
-          return `<h2>Koniec</h2><p>Dokładność (test): ${(acc*100).toFixed(1)}%</p><p class="muted">Trwa zapisywanie wyników…</p>`;
-        },
-        choices: ["OK"]
-      };
-
-      jsPsych.run([
-        initials,
-        instr,
-        stroopBlock('training', CONFIG.TRAIN_N),
-        afterTraining,
-        stroopBlock('main', CONFIG.TEST_N),
-        debrief
-      ]);
-    }, 300); // timeout po załadowaniu strony
-  });
-  </script>
+// start
+screenIntro();
+</script>
 </body>
 </html>
