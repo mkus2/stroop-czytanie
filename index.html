@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stroop (PL) — 10 trening + 50 test</title>
+  <!-- jsPsych via CDN -->
+  <script src="https://unpkg.com/jspsych@7.3.4/dist/jspsych.js"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-text@1.2.0"></script>
+  <link href="https://unpkg.com/jspsych@7.3.4/dist/jspsych.css" rel="stylesheet" />
+  <style>
+    body { background:#111; color:#eee; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .jspsych-content { max-width: 800px; }
+    .big { font-size: 56px; line-height: 1.2; }
+    .fix { font-size: 48px; color: #999; }
+    .kbd { background:#222; border-radius:8px; padding:6px 10px; margin:2px; display:inline-block; }
+    .center { text-align:center; }
+    .muted { color:#bbb; font-size: 14px; }
+    .btn { background:#2d6cdf; color:#fff; padding:10px 16px; border-radius:10px; border:none; cursor:pointer; font-size:16px; }
+  </style>
+</head>
+<body>
+  <div id="jspsych-target"></div>
+<script>
+const CONFIG = {
+  TRAIN_N: 10,
+  TEST_N: 50,
+  MAX_RT: 2000,
+  ITI: 200,
+  FIX: 300,
+  COLORS: [
+    {word:"CZERWONY", css:"red", key:"c", idx:1, congr:1},
+    {word:"ZIELONY", css:"green", key:"z", idx:2, congr:1},
+    {word:"NIEBIESKI", css:"blue", key:"n", idx:3, congr:1},
+    {word:"FIOLETOWY", css:"purple", key:"f", idx:4, congr:1},
+    {word:"BRĄZOWY", css:"brown", key:"b", idx:5, congr:1}
+  ],
+  INCONG_MAP: {
+    "CZERWONY": ["green","blue","purple","brown"],
+    "ZIELONY": ["red","blue","purple","brown"],
+    "NIEBIESKI": ["red","green","purple","brown"],
+    "FIOLETOWY": ["red","green","blue","brown"],
+    "BRĄZOWY": ["red","green","blue","purple"]
+  },
+  ENDPOINT_URL: ""
+};
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function makeTrial(congruent=true){
+  const color = pick(CONFIG.COLORS);
+  const word = color.word;
+  let cssColor = color.css;
+  let correct_key = color.key;
+  let correct_idx = color.idx;
+  let congr = 1;
+  if(!congruent){
+    const ink = pick(CONFIG.INCONG_MAP[word]);
+    cssColor = ink;
+    const byInk = CONFIG.COLORS.find(c => c.css === ink);
+    correct_key = byInk.key;
+    correct_idx = byInk.idx;
+    congr = 0;
+  }
+  return { stim_word: word, ink_color: cssColor, congruency: congr, correct_key, correct_idx };
+}
+
+function buildTrials(n_total){
+  const half = Math.floor(n_total/2);
+  const arr = [];
+  for(let i=0;i<half;i++){ arr.push(makeTrial(true)); }
+  for(let i=0;i<n_total-half;i++){ arr.push(makeTrial(false)); }
+  return shuffle(arr);
+}
+
+function toCSV(rows){
+  const header = Object.keys(rows[0]);
+  const lines = [header.join(",")];
+  for(const r of rows){
+    lines.push(header.map(h => (""+r[h]).replace(/"/g,'""')).map(v => /[",\n]/.test(v) ? `"${v}"` : v).join(","));
+  }
+  return lines.join("\n");
+}
+
+(async function(){
+  const jsPsych = initJsPsych({
+    on_finish: async function(){
+      const csv = TRIALS_LOG.length ? toCSV(TRIALS_LOG) : "no_data\n";
+      if(CONFIG.ENDPOINT_URL){
+        try{
+          const resp = await fetch(CONFIG.ENDPOINT_URL, {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({payload: TRIALS_LOG})
+          });
+          if(resp.ok){
+            jsPsych.getDisplayElement().innerHTML = `<div class="center"><h2>Dziękujemy!</h2><p>Dane zostały przesłane.</p><p class="muted">Możesz zamknąć to okno.</p></div>`;
+            return;
+          } else { throw new Error("HTTP "+resp.status); }
+        }catch(e){ /* fallback to download */ }
+      }
+      const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      const pid = (window.__PID || "NN").toUpperCase();
+      a.href = URL.createObjectURL(blob);
+      a.download = `stroop_pl_${pid}_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      jsPsych.getDisplayElement().innerHTML = `<div class="center"><h2>Dziękujemy!</h2><p>Pobrano plik z wynikami.</p><p class="muted">Aby zbierać dane automatycznie, skonfiguruj ENDPOINT_URL (zob. README).</p></div>`;
+    }
+  });
+
+  const TRIALS_LOG = [];
+
+  const initials = {
+    type: jsPsychSurveyText,
+    preamble: `<div class="center"><h2>Badanie Stroopa (PL)</h2>
+      <p>Wpisz swoje inicjały (2 litery, np. AK), a następnie kliknij <strong>Dalej</strong>.</p></div>`,
+    questions: [{prompt: 'Inicjały (2 litery)', required: true, placeholder:"AK", name:"initials", columns: 4}],
+    button_label: "Dalej",
+    on_finish: data => {
+      const val = (data.response.initials || "").trim().toUpperCase();
+      window.__PID = val;
+    }
+  };
+
+  const instr1 = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `<div class="center">
+      <p>Reaguj na <strong>KOLOR CZCIONKI</strong> (nie na słowo).</p>
+      <p>Klawisze: <span class="kbd">C</span>=Czerwony, <span class="kbd">Z</span>=Zielony,
+      <span class="kbd">N</span>=Niebieski, <span class="kbd">F</span>=Fioletowy, <span class="kbd">B</span>=Brązowy.</p>
+      <p>Trening: ${CONFIG.TRAIN_N} prób, Test: ${CONFIG.TEST_N} prób.</p>
+      <p class="muted">Limit odpowiedzi: ${CONFIG.MAX_RT/1000} s. Kliknij, aby zacząć trening.</p>
+    </div>`,
+    choices: ["Zaczynam trening"]
+  };
+
+  const fixation = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<div class="fix center">+</div>`,
+    choices: "NO_KEYS",
+    trial_duration: CONFIG.FIX
+  };
+
+  function stroopTrialFactory(phaseLabel){
+    return {
+      timeline: [
+        fixation,
+        {
+          type: jsPsychHtmlKeyboardResponse,
+          stimulus: function(){
+            const t = jsPsych.timelineVariable('t');
+            return `<div class="big center" style="color:${t.ink_color};">${t.stim_word}</div>`;
+          },
+          choices: ["c","z","n","f","b"],
+          trial_duration: CONFIG.MAX_RT,
+          data: function(){
+            const t = jsPsych.timelineVariable('t');
+            return {
+              phase: phaseLabel,
+              stim_word: t.stim_word,
+              ink_color: t.ink_color,
+              congruency: t.congruency,
+              correct_key: t.correct_key,
+              correct_idx: t.correct_idx,
+              pid: window.__PID || ""
+            };
+          },
+          on_finish: function(data){
+            const rt = data.rt;
+            const correct = data.response ? jsPsych.pluginAPI.compareKeys(data.response, data.correct_key) : false;
+            const status = data.response ? (correct ? 1 : 2) : 3;
+            TRIALS_LOG.push({
+              pid: data.pid,
+              phase: data.phase,
+              stim_word: data.stim_word,
+              ink_color: data.ink_color,
+              congruency: data.congruency,
+              correct_key: data.correct_key,
+              correct_idx: data.correct_idx,
+              key: data.response || "",
+              status: status,
+              rt: rt || CONFIG.MAX_RT
+            });
+          }
+        },
+        {
+          type: jsPsychHtmlKeyboardResponse,
+          stimulus: "",
+          choices: "NO_KEYS",
+          trial_duration: CONFIG.ITI
+        }
+      ],
+      timeline_variables: [],
+      randomize_order: true
+    };
+  }
+
+  const trainTrials = buildTrials(CONFIG.TRAIN_N).map(t => ({t}));
+  const testTrials  = buildTrials(CONFIG.TEST_N).map(t => ({t}));
+
+  const trainingBlock = stroopTrialFactory("training");
+  trainingBlock.timeline_variables = trainTrials;
+
+  const mainBlock = stroopTrialFactory("main");
+  mainBlock.timeline_variables = testTrials;
+
+  const instr2 = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: `<div class="center">
+      <p>Trening zakończony. Teraz część właściwa (${CONFIG.TEST_N} prób).</p>
+      <p class="muted">Kliknij, aby kontynuować.</p>
+    </div>`,
+    choices: ["Start testu"]
+  };
+
+  const debrief = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: function(){
+      const n = TRIALS_LOG.filter(r => r.phase==='main').length;
+      const acc = TRIALS_LOG.filter(r => r.phase==='main' && r.status===1).length / (n || 1);
+      return `<div class="center">
+        <h2>Koniec</h2>
+        <p>Dokładność (test): ${(acc*100).toFixed(1)}%</p>
+        <p class="muted">Trwa zapisywanie wyników…</p>
+      </div>`;
+    },
+    choices: ["OK"]
+  };
+
+  jsPsych.run([initials, instr1, trainingBlock, instr2, mainBlock, debrief]);
+})();
+</script>
+</body>
+</html>
