@@ -26,7 +26,7 @@ const CONFIG = {
   MAX_RT: 2000,  // limit odpowiedzi (ms)
   ITI: 200,      // przerwa (ms)
   FIX: 300,      // fiksacja (ms)
-  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec" // <- opcjonalny URL Google Apps Script (możesz dodać później)
+  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec" // <- Twój URL
 };
 
 const COLORS = [
@@ -48,7 +48,7 @@ const INCONG_MAP = {
 const app = document.getElementById('app');
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function pick(arr){ return arr[Math.floor(Math.random()*(arr.length)); }
 function makeTrial(congruent=true){
   const color = pick(COLORS);
   const word = color.word;
@@ -93,7 +93,6 @@ function downloadCSV(filename, csv){
 // =============== APLIKACJA ===============
 let PID = "";                 // inicjały
 const LOG = [];               // wiersze z prób
-let keyHandler = null;
 
 function screenIntro(){
   app.innerHTML = `
@@ -196,26 +195,24 @@ async function finish(){
     <p>Dokładność (test): ${(acc*100).toFixed(1)}%</p>
     <p class="muted">Trwa zapisywanie wyników…</p>`;
 
-  // wysyłka do Google Sheet (opcjonalnie)
+  // --- wysyłka do Google Sheet (no-cors) ---
   if(CONFIG.ENDPOINT_URL){
     try{
       await fetch(CONFIG.ENDPOINT_URL, {
-  method: "POST",
-  mode: "no-cors", // <- kluczowe: omija CORS
-  // w trybie no-cors nie używamy application/json
-  headers: {"Content-Type":"text/plain;charset=utf-8"},
-  body: JSON.stringify({ payload: LOG })
-});
-// jeśli fetch nie rzucił błędu, traktujemy to jako sukces:
-app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Dane zostały przesłane — możesz zamknąć to okno.</p>`;
-return;
-
+        method: "POST",
+        mode: "no-cors", // omija CORS
+        headers: {"Content-Type":"text/plain;charset=utf-8"},
+        body: JSON.stringify({ payload: LOG })
+      });
+      // Jeśli fetch nie rzuci wyjątku, traktujemy to jako sukces:
+      app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Dane zostały przesłane — możesz zamknąć to okno.</p>`;
+      return;
     }catch(e){
-      // jeśli błąd, wypadamy na CSV
+      // w razie błędu – fallback
     }
   }
 
-  // fallback: CSV do pobrania
+  // --- fallback: CSV do pobrania ---
   const csv = toCSV(LOG);
   const fname = `stroop_pl_${PID}_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`;
   downloadCSV(fname, csv);
