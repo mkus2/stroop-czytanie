@@ -3,107 +3,109 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Stroop (PL) — 10 trening + 50 test (bez bibliotek)</title>
+<title>Stroop (PL) — 10 trening + 50 test</title>
 <style>
- html,body{height:100%}
+  html,body{height:100%}
   body{
     margin:0;
     background:#e9e9e9;   /* jasnoszare tło */
     color:#111;           /* ciemny tekst */
-    font-family:s'Calibri', 'Segoe UI', Roboto, sans-serif;
+    font-family:'Calibri','Segoe UI',Roboto,sans-serif;
     display:flex;align-items:center;justify-content:center
   }
   #app{max-width:900px;padding:24px;text-align:center}
   h1,h2{margin:0 0 12px} p{line-height:1.5}
-  .muted{color:#555} .big{font-family: 'Calibri', 'Segoe UI', Roboto, sans-serif;
-  font-size: 92px;           /* mocno większe; ewentualnie zmień na 88–100px */
-  line-height: 1.02;         /* „zbita” linia jak w testach typograficznych */
-  font-weight: 900;          /* bardzo pogrubione */
-  letter-spacing: 0.5px;     /* subtelne rozstrzelenie liter */
-  text-transform: uppercase; /* upewnia się, że wszystko jest DUŻYMI literami */
-  -webkit-text-stroke: 1px rgba(0,0,0,0.25); /* delikatny kontur dla kontrastu */
-  text-shadow: 0 0 1px rgba(0,0,0,0.25);     /* lekkie wzmocnienie krawędzi */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;}
- @media (max-width: 900px){ .big{ font-size:84px; } }
-@media (max-width: 700px){ .big{ font-size:76px; } }
-@media (max-width: 560px){ .big{ font-size:68px; } }
+  .muted{color:#555}
+  .big{
+    font-family:'Calibri','Segoe UI',Roboto,sans-serif;
+    font-size:92px;           /* duże, typograficzne */
+    line-height:1.02;
+    font-weight:900;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    -webkit-text-stroke:1px rgba(0,0,0,.25);
+    text-shadow:0 0 1px rgba(0,0,0,.25);
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+  @media (max-width: 900px){ .big{ font-size:84px; } }
+  @media (max-width: 700px){ .big{ font-size:76px; } }
+  @media (max-width: 560px){ .big{ font-size:68px; } }
+
   .fix{font-size:48px;color:#666}
-  .kbd{background:#ddd;border-radius:8px;padding:6px 10px;margin:2px;display:inline-block}
   .btn{background:#2d6cdf;color:#fff;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:16px}
   .row{margin:18px 0}
   input[type=text]{font-size:18px;padding:8px 10px;border-radius:8px;border:1px solid #999;background:#fff;color:#111;letter-spacing:2px;text-transform:uppercase;text-align:center}
-.keypill{
-  display:inline-flex; align-items:center; gap:8px;
-  background:#fff; color:#111; border-radius:999px;
-  padding:6px 10px; margin:6px; border:1px solid #ccc;
-  font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,.06);
-}
-.keypill .k{
-  display:inline-block; min-width:28px; text-align:center;
-  border:1px solid #bbb; border-radius:6px; padding:2px 6px;
-  background:#f3f3f3; font-weight:800;
-}
-.instr-card{
-  background:#fff; color:#111; border-radius:16px; padding:18px 20px;
-  border:1px solid #ddd; box-shadow:0 2px 8px rgba(0,0,0,.06);
-  display:inline-block; text-align:left;
-}
-.instr-card h3{ margin:0 0 10px; font-size:22px }
-.instr-card p{ margin:8px 0 12px }
-.instr-card .muted{ color:#555 }
-.center{ text-align:center }
+
+  /* estetyczna karta instrukcji + pigułki klawiszy */
+  .keypill{
+    display:inline-flex;align-items:center;gap:8px;
+    background:#fff;color:#111;border-radius:999px;
+    padding:6px 10px;margin:6px;border:1px solid #ccc;
+    font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.06);
+  }
+  .keypill .k{
+    display:inline-block;min-width:28px;text-align:center;
+    border:1px solid #bbb;border-radius:6px;padding:2px 6px;
+    background:#f3f3f3;font-weight:800;
+  }
+  .instr-card{
+    background:#fff;color:#111;border-radius:16px;padding:18px 20px;
+    border:1px solid #ddd;box-shadow:0 2px 8px rgba(0,0,0,.06);
+    display:inline-block;text-align:left;
+  }
+  .instr-card h3{ margin:0 0 10px; font-size:22px }
+  .instr-card p{ margin:8px 0 12px }
+  .center{ text-align:center }
 </style>
 </head>
 <body>
 <div id="app"></div>
 
 <script>
-const CONFIG = {
+/* ------- KONFIG ------- */
+var CONFIG = {
   TRAIN_N: 10,
   TEST_N: 50,
   MAX_RT: 2000,
   ITI: 200,
   FIX: 300,
-  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec"
+  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec"  /* <- Twój endpoint; zostaw jak jest, jeśli działa */
 };
 
-const COLORS = [
-  { word:"CZERWONY",  css:"#D32F2F", key:"c", idx:1 }, // ciemna czerwień
-  { word:"ZIELONY",   css:"#2E7D32", key:"z", idx:2 }, // butelkowa zieleń
-  { word:"NIEBIESKI", css:"#1565C0", key:"n", idx:3 }, // intensywny niebieski
-  { word:"FIOLETOWY", css:"#6A1B9A", key:"f", idx:4 }, // głęboki fiolet
-  { word:"BRĄZOWY",   css:"#6D4C41", key:"b", idx:5 }  // chłodny brąz
+/* ------- KOLORY (spójne hexy) ------- */
+var COLORS = [
+  { word:"CZERWONY",  css:"#D32F2F", key:"c", idx:1 },
+  { word:"ZIELONY",   css:"#2E7D32", key:"z", idx:2 },
+  { word:"NIEBIESKI", css:"#1565C0", key:"n", idx:3 },
+  { word:"FIOLETOWY", css:"#6A1B9A", key:"f", idx:4 },
+  { word:"BRĄZOWY",   css:"#6D4C41", key:"b", idx:5 }
 ];
 
-const INCONG_MAP = {
-  "CZERWONY":  ["#2E7D32","#1565C0","#6A1B9A","#6D4C41"],
-  "ZIELONY":   ["#D32F2F","#1565C0","#6A1B9A","#6D4C41"],
-  "NIEBIESKI": ["#D32F2F","#2E7D32","#6A1B9A","#6D4C41"],
-  "FIOLETOWY": ["#D32F2F","#2E7D32","#1565C0","#6D4C41"],
-  "BRĄZOWY":   ["#D32F2F","#2E7D32","#1565C0","#6A1B9A"]
-};
-
-const app = document.getElementById('app');
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+/* ------- UTIL ------- */
+var app = document.getElementById('app');
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
-function makeTrial(congruent, baseColor){
+/* makeTrial: przyjmuje bazowe SŁOWO (baseColor) i opcjonalnie wymuszony ATRAMENT (forcedInkCss) */
+function makeTrial(congruent, baseColor, forcedInkCss){
   var color = baseColor || pick(COLORS);
   var word  = color.word;
-  var ink   = color.css;
-  var correct_key = color.key;
-  var correct_idx = color.idx;
-  var congr = 1;
 
-  if(congruent === false){
-    // wybierz atrament z listy niezgodnych dla TEGO słowa
-    ink = pick(INCONG_MAP[word]);
-    var byInk = COLORS.find(function(c){ return c.css === ink; });
+  var ink, byInk, correct_key, correct_idx, congr;
+  if(congruent){
+    ink         = color.css;     /* słowo i atrament zgodne */
+    byInk       = color;
+    correct_key = color.key;
+    correct_idx = color.idx;
+    congr       = 1;
+  } else {
+    ink         = forcedInkCss;  /* wymuszamy atrament, żeby balansować INK */
+    byInk       = COLORS.find(function(c){ return c.css === ink; });
     correct_key = byInk.key;
     correct_idx = byInk.idx;
-    congr = 0;
+    congr       = 0;
   }
 
   return {
@@ -115,61 +117,83 @@ function makeTrial(congruent, baseColor){
   };
 }
 
+/* buildTrials: balansuje WORD w kongruentnych i INK w niekongruentnych */
 function buildTrials(n){
-  // pomocniczo: przygotuj listę kolorów powtórzonych równomiernie do 'total' sztuk
-  function balancedColorList(total){
-    var per = Math.floor(total / COLORS.length);     // pełne cykle (po 5 kolorów)
-    var rem = total % COLORS.length;                 // nadwyżka
-    var arr = [];
-    // pełne cykle
-    for(var r=0; r<per; r++){
-      for(var i=0; i<COLORS.length; i++){
-        arr.push(COLORS[i]);
-      }
-    }
-    // nadwyżkę dobieramy z przetasowanej kopii, aby nadal było „sprawiedliwie”
-    if(rem > 0){
-      var extra = COLORS.slice(0);
-      shuffle(extra);
-      for(var j=0; j<rem; j++){
-        arr.push(extra[j]);
-      }
-    }
-    return arr;
-  }
-
+  var L = COLORS.length;              // 5
   var half = Math.floor(n/2);
-  var congrColors  = balancedColorList(half);       // kolory dla kongruentnych
-  var incongColors = balancedColorList(n - half);   // kolory dla niekongruentnych
 
-  var trials = [];
-  for(var i=0;i<congrColors.length;i++){
-    trials.push(makeTrial(true,  congrColors[i]));
+  /* === KONGRUENTNE (balans WORD/INK) === */
+  var congr_trials = [];
+  var congr_rep = Math.floor(half / L);   // pełne cykle po 5
+  var congr_rem = half % L;
+
+  for(var r=0; r<congr_rep; r++){
+    var cyc = COLORS.slice(0); shuffle(cyc);  // kolejność słów w cyklu
+    for(var i=0;i<L;i++){ congr_trials.push(makeTrial(true, cyc[i])); }
   }
-  for(var k=0;k<incongColors.length;k++){
-    trials.push(makeTrial(false, incongColors[k]));
+  if(congr_rem>0){
+    var extraC = COLORS.slice(0); shuffle(extraC);
+    for(var e=0;e<congr_rem;e++){ congr_trials.push(makeTrial(true, extraC[e])); }
   }
 
-  return shuffle(trials); // kolejność wciąż losowa
+  /* === NIEKONGRUENTNE (balans INK) === */
+  var incong_trials = [];
+  var inc_total = n - half;
+  var inc_rep = Math.floor(inc_total / L);  // pełne cykle atramentów
+  var inc_rem = inc_total % L;
+
+  for(var r2=0; r2<inc_rep; r2++){
+    // słowa: po jednym z każdego koloru (kolejność losowa)
+    var words = COLORS.slice(0); shuffle(words);
+    // atramenty: rotacja listy words -> żadne słowo nie ma własnego koloru
+    var shift = (r2 % (L-1)) + 1; // 1..4
+    var inks  = words.slice(0).map(function(_,i){ return words[(i+shift)%L].css; });
+    for(var j=0;j<L;j++){
+      incong_trials.push(makeTrial(false, words[j], inks[j]));
+    }
+  }
+  if(inc_rem>0){
+    var wordsRem = COLORS.slice(0); shuffle(wordsRem); wordsRem = wordsRem.slice(0, inc_rem);
+    var inksPool = COLORS.slice(0); shuffle(inksPool);
+    var usedInks = {};
+    for(var t=0; t<wordsRem.length; t++){
+      var w = wordsRem[t];
+      var chosen = null;
+      for(var p=0; p<inksPool.length; p++){
+        var cand = inksPool[p].css;
+        if(cand !== w.css && !usedInks[cand]){ chosen = cand; usedInks[cand] = true; break; }
+      }
+      if(!chosen){ // awaryjnie: cokolwiek ≠ słowo
+        for(var q=0;q<COLORS.length;q++){ if(COLORS[q].css !== w.css){ chosen = COLORS[q].css; break; } }
+      }
+      incong_trials.push(makeTrial(false, w, chosen));
+    }
+  }
+
+  var all = congr_trials.concat(incong_trials);
+  shuffle(all);
+  return all;
 }
 
+/* CSV utils */
 function toCSV(rows){
   if(!rows.length) return "no_data\n";
-  const header = Object.keys(rows[0]);
-  const lines = [header.join(",")];
-  for(const r of rows){
-    const line = header.map(h => {
-      const v = (r[h] ?? "").toString().replace(/"/g,'""');
-      return /[",\n]/.test(v) ? `"${v}"` : v;
-    }).join(",");
-    lines.push(line);
+  var header = Object.keys(rows[0]);
+  var out = [header.join(",")];
+  for(var i=0;i<rows.length;i++){
+    var r = rows[i], line = [];
+    for(var k=0;k<header.length;k++){
+      var h = header[k];
+      var v = (r[h]==null ? "" : String(r[h]).replace(/"/g,'""'));
+      line.push(/["\n,]/.test(v) ? '"'+v+'"' : v);
+    }
+    out.push(line.join(","));
   }
-  return lines.join("\n");
+  return out.join("\n");
 }
-
 function downloadCSV(filename, csv){
-  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-  const a = document.createElement("a");
+  var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  var a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
   document.body.appendChild(a);
@@ -177,21 +201,19 @@ function downloadCSV(filename, csv){
   a.remove();
 }
 
-let PID = "";
-const LOG = [];
+/* ------- APLIKACJA ------- */
+var PID = "";
+var LOG = [];
 
 function screenIntro(){
-  app.innerHTML = `
-    <h2>Badanie Stroopa (PL)</h2>
-    <div class="row"><p>Wpisz swoje inicjały (2 litery, np. AK) i naciśnij „Dalej”.</p>
-      <input id="pid" type="text" maxlength="2" placeholder="AK" autofocus>
-    </div>
-    <div class="row">
-      <button class="btn" id="next1">Dalej</button>
-    </div>`;
-  document.getElementById('next1').onclick = ()=>{
-    const v = (document.getElementById('pid').value||"").trim().toUpperCase();
-    if(!/^[A-ZĄĆĘŁŃÓŚŹŻ]{2}$/.test(v)) { alert("Podaj dokładnie 2 litery."); return; }
+  app.innerHTML =
+    '<h2>Badanie Stroopa (PL)</h2>' +
+    '<div class="row"><p>Wpisz swoje inicjały (2 litery, np. AK) i naciśnij „Dalej”.</p>' +
+    '<input id="pid" type="text" maxlength="2" placeholder="AK" autofocus></div>' +
+    '<div class="row"><button class="btn" id="next1">Dalej</button></div>';
+  document.getElementById('next1').onclick = function(){
+    var v = (document.getElementById('pid').value||"").trim().toUpperCase();
+    if(!/^[A-ZĄĆĘŁŃÓŚŹŻ]{2}$/.test(v)){ alert("Podaj dokładnie 2 litery."); return; }
     PID = v;
     screenInstr();
   };
@@ -202,8 +224,6 @@ function screenInstr(){
     '<div class="instr-card">' +
       '<h3 class="center">Instrukcja</h3>' +
       '<p class="center"><b>Reaguj na <u>KOLOR CZCIONKI</u></b> (nie na słowo).</p>' +
-
-      // kolorowa legenda
       '<div class="center" style="margin:10px 0 6px">' +
         '<span class="keypill"><span class="k">C</span><span style="color:#D32F2F">Czerwony</span></span>' +
         '<span class="keypill"><span class="k">Z</span><span style="color:#2E7D32">Zielony</span></span>' +
@@ -211,37 +231,34 @@ function screenInstr(){
         '<span class="keypill"><span class="k">F</span><span style="color:#6A1B9A">Fioletowy</span></span>' +
         '<span class="keypill"><span class="k">B</span><span style="color:#6D4C41">Brązowy</span></span>' +
       '</div>' +
-
       '<p class="center muted">Najpierw trening (10 prób), potem test (50 prób). Limit odpowiedzi: ' + (CONFIG.MAX_RT/1000) + ' s.</p>' +
-
       '<div class="center" style="margin-top:10px">' +
         '<button class="btn" id="startTrain">Zaczynam trening</button>' +
       '</div>' +
     '</div>';
-
   document.getElementById('startTrain').onclick = function(){ runBlock("training", CONFIG.TRAIN_N); };
 }
 
 async function runBlock(phase, ntrials){
-  const trials = buildTrials(ntrials);
-  for(let i=0;i<trials.length;i++){
-    app.innerHTML = `<div class="fix">+</div>`;
+  var trials = buildTrials(ntrials);
+  for(var i=0;i<trials.length;i++){
+    app.innerHTML = '<div class="fix">+</div>';
     await sleep(CONFIG.FIX);
 
-    const t = trials[i];
-    const start = performance.now();
-    app.innerHTML = `<div class="big" style="color:${t.ink_color};">${t.stim_word}</div>`;
+    var t = trials[i];
+    var start = performance.now();
+    app.innerHTML = '<div class="big" style="color:'+t.ink_color+';">'+t.stim_word+'</div>';
 
-    const result = await new Promise(resolve=>{
-      let done = false;
+    var result = await new Promise(function(resolve){
+      var done = false, timer;
       function onKey(e){
-        const k = (e.key||"").toLowerCase();
+        var k = (e.key||"").toLowerCase();
         if(k==="c"||k==="z"||k==="n"||k==="f"||k==="b"){
-          const rt = performance.now() - start;
-          const correct = (k === t.correct_key);
+          var rt = performance.now() - start;
+          var correct = (k === t.correct_key);
           cleanup();
           done = true;
-          resolve({key:k, status: correct?1:2, rt: Math.round(rt)});
+          resolve({key:k, status: (correct?1:2), rt: Math.round(rt)});
         }
       }
       function onTimeout(){
@@ -255,7 +272,7 @@ async function runBlock(phase, ntrials){
         clearTimeout(timer);
       }
       window.addEventListener('keydown', onKey);
-      const timer = setTimeout(onTimeout, CONFIG.MAX_RT);
+      timer = setTimeout(onTimeout, CONFIG.MAX_RT);
     });
 
     LOG.push({
@@ -271,25 +288,27 @@ async function runBlock(phase, ntrials){
       rt: result.rt
     });
 
-    app.innerHTML = ``;
+    app.innerHTML = '';
     await sleep(CONFIG.ITI);
   }
 
   if(phase === "training"){
-    app.innerHTML = `<p>Trening zakończony. Teraz część właściwa (${CONFIG.TEST_N} prób).</p>
-                     <div class="row"><button class="btn" id="startMain">Start testu</button></div>`;
-    document.getElementById('startMain').onclick = ()=> runBlock("main", CONFIG.TEST_N);
+    app.innerHTML =
+      '<p>Trening zakończony. Teraz część właściwa ('+CONFIG.TEST_N+' prób).</p>' +
+      '<div class="row"><button class="btn" id="startMain">Start testu</button></div>';
+    document.getElementById('startMain').onclick = function(){ runBlock("main", CONFIG.TEST_N); };
   } else {
     finish();
   }
 }
 
 async function finish(){
-  const main = LOG.filter(r => r.phase==="main");
-  const acc  = main.filter(r => r.status===1).length / (main.length||1);
-  app.innerHTML = `<h2>Koniec</h2>
-    <p>Dokładność (test): ${(acc*100).toFixed(1)}%</p>
-    <p class="muted">Trwa zapisywanie wyników…</p>`;
+  var main = LOG.filter(function(r){ return r.phase==="main"; });
+  var acc  = main.filter(function(r){ return r.status===1; }).length / (main.length||1);
+  app.innerHTML =
+    '<h2>Koniec</h2>' +
+    '<p>Dokładność (test): '+(acc*100).toFixed(1)+'%</p>' +
+    '<p class="muted">Trwa zapisywanie wyników…</p>';
 
   if(CONFIG.ENDPOINT_URL){
     try{
@@ -299,17 +318,18 @@ async function finish(){
         headers: {"Content-Type":"text/plain;charset=utf-8"},
         body: JSON.stringify({ payload: LOG })
       });
-      app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Dane zostały przesłane — możesz zamknąć to okno.</p>`;
+      app.innerHTML = '<h2>Dziękujemy!</h2><p class="muted">Dane zostały przesłane — możesz zamknąć to okno.</p>';
       return;
     }catch(e){}
   }
 
-  const csv = toCSV(LOG);
-  const fname = `stroop_pl_${PID}_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`;
+  var csv = toCSV(LOG);
+  var fname = 'stroop_pl_'+PID+'_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
   downloadCSV(fname, csv);
-  app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Pobrano plik z wynikami.</p>`;
+  app.innerHTML = '<h2>Dziękujemy!</h2><p class="muted">Pobrano plik z wynikami.</p>';
 }
 
+/* start */
 screenIntro();
 </script>
 </body>
