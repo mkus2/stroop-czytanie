@@ -25,6 +25,26 @@
   .btn{background:#2d6cdf;color:#fff;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:16px}
   .row{margin:18px 0}
   input[type=text]{font-size:18px;padding:8px 10px;border-radius:8px;border:1px solid #999;background:#fff;color:#111;letter-spacing:2px;text-transform:uppercase;text-align:center}
+.keypill{
+  display:inline-flex; align-items:center; gap:8px;
+  background:#fff; color:#111; border-radius:999px;
+  padding:6px 10px; margin:6px; border:1px solid #ccc;
+  font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,.06);
+}
+.keypill .k{
+  display:inline-block; min-width:28px; text-align:center;
+  border:1px solid #bbb; border-radius:6px; padding:2px 6px;
+  background:#f3f3f3; font-weight:800;
+}
+.instr-card{
+  background:#fff; color:#111; border-radius:16px; padding:18px 20px;
+  border:1px solid #ddd; box-shadow:0 2px 8px rgba(0,0,0,.06);
+  display:inline-block; text-align:left;
+}
+.instr-card h3{ margin:0 0 10px; font-size:22px }
+.instr-card p{ margin:8px 0 12px }
+.instr-card .muted{ color:#555 }
+.center{ text-align:center }
 </style>
 </head>
 <body>
@@ -132,13 +152,28 @@ function screenIntro(){
 }
 
 function screenInstr(){
-  app.innerHTML = `
-    <p>Reaguj na <b>KOLOR CZCIONKI</b> (nie na słowo).</p>
-    <p>Klawisze: <span class="kbd">C</span>=Czerwony, <span class="kbd">Z</span>=Zielony,
-       <span class="kbd">N</span>=Niebieski, <span class="kbd">F</span>=Fioletowy, <span class="kbd">B</span>=Brązowy.</p>
-    <p>Najpierw trening (10 prób), potem test (50 prób). Limit odpowiedzi: ${CONFIG.MAX_RT/1000}s.</p>
-    <div class="row"><button class="btn" id="startTrain">Zaczynam trening</button></div>`;
-  document.getElementById('startTrain').onclick = ()=> runBlock("training", CONFIG.TRAIN_N);
+  app.innerHTML =
+    '<div class="instr-card">' +
+      '<h3 class="center">Instrukcja</h3>' +
+      '<p class="center"><b>Reaguj na <u>KOLOR CZCIONKI</u></b> (nie na słowo).</p>' +
+
+      // kolorowa legenda
+      '<div class="center" style="margin:10px 0 6px">' +
+        '<span class="keypill"><span class="k">C</span><span style="color:#D32F2F">Czerwony</span></span>' +
+        '<span class="keypill"><span class="k">Z</span><span style="color:#2E7D32">Zielony</span></span>' +
+        '<span class="keypill"><span class="k">N</span><span style="color:#1565C0">Niebieski</span></span>' +
+        '<span class="keypill"><span class="k">F</span><span style="color:#6A1B9A">Fioletowy</span></span>' +
+        '<span class="keypill"><span class="k">B</span><span style="color:#6D4C41">Brązowy</span></span>' +
+      '</div>' +
+
+      '<p class="center muted">Najpierw trening (10 prób), potem test (50 prób). Limit odpowiedzi: ' + (CONFIG.MAX_RT/1000) + ' s.</p>' +
+
+      '<div class="center" style="margin-top:10px">' +
+        '<button class="btn" id="startTrain">Zaczynam trening</button>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('startTrain').onclick = function(){ runBlock("training", CONFIG.TRAIN_N); };
 }
 
 async function runBlock(phase, ntrials){
