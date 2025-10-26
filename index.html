@@ -16,9 +16,11 @@
   #app{max-width:900px;padding:24px;text-align:center}
   h1,h2{margin:0 0 12px} p{line-height:1.5}
   .muted{color:#555}
+
+  /* Bodziec: typograficzny wygląd */
   .big{
     font-family:'Calibri','Segoe UI',Roboto,sans-serif;
-    font-size:92px;           /* duże, typograficzne */
+    font-size:92px;
     line-height:1.02;
     font-weight:900;
     letter-spacing:0.5px;
@@ -37,7 +39,7 @@
   .row{margin:18px 0}
   input[type=text]{font-size:18px;padding:8px 10px;border-radius:8px;border:1px solid #999;background:#fff;color:#111;letter-spacing:2px;text-transform:uppercase;text-align:center}
 
-  /* estetyczna karta instrukcji + pigułki klawiszy */
+  /* Instrukcja + pigułki klawiszy */
   .keypill{
     display:inline-flex;align-items:center;gap:8px;
     background:#fff;color:#111;border-radius:999px;
@@ -57,6 +59,26 @@
   .instr-card h3{ margin:0 0 10px; font-size:22px }
   .instr-card p{ margin:8px 0 12px }
   .center{ text-align:center }
+
+  /* Karta bodźca */
+  .stim-card{
+    background:#fff; border:1px solid #ddd; box-shadow:0 4px 18px rgba(0,0,0,.08);
+    border-radius:18px; padding:40px 28px; display:inline-block; min-width: min(90vw, 780px);
+  }
+
+  /* HUD – licznik + pasek postępu */
+  .hud{
+    position:fixed; top:14px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:14px; z-index:50;
+  }
+  .hud .badge{
+    background:#fff; color:#111; border:1px solid #ddd;
+    border-radius:999px; padding:6px 12px; font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,.06);
+  }
+  .hud .progress{
+    width:320px; height:10px; background:#e3e3e3; border-radius:999px; overflow:hidden; border:1px solid #d0d0d0;
+  }
+  .hud .bar{ height:100%; width:0%; background:#2d6cdf; transition:width .2s ease; }
 </style>
 </head>
 <body>
@@ -70,10 +92,10 @@ var CONFIG = {
   MAX_RT: 2000,
   ITI: 200,
   FIX: 300,
-  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec"  /* <- Twój endpoint; zostaw jak jest, jeśli działa */
+  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec"
 };
 
-/* ------- KOLORY (spójne hexy) ------- */
+/* ------- KOLORY ------- */
 var COLORS = [
   { word:"CZERWONY",  css:"#D32F2F", key:"c", idx:1 },
   { word:"ZIELONY",   css:"#2E7D32", key:"z", idx:2 },
@@ -87,6 +109,25 @@ var app = document.getElementById('app');
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+/* HUD helpers */
+function ensureHUD(){
+  if(document.getElementById('hud')) return;
+  var hud = document.createElement('div'); hud.id = 'hud'; hud.className = 'hud';
+  hud.innerHTML = '<span class="badge" id="hudPhase">Przygotowanie</span><div class="progress"><div class="bar" id="hudBar"></div></div><span class="badge" id="hudCount">0/0</span>';
+  document.body.appendChild(hud);
+}
+function updateHUD(done, total, phaseLabel){
+  ensureHUD();
+  var pct = total ? Math.round((done/total)*100) : 0;
+  document.getElementById('hudBar').style.width = pct + '%';
+  document.getElementById('hudCount').textContent = done + '/' + total;
+  document.getElementById('hudPhase').textContent = phaseLabel;
+}
+function hideHUD(){
+  var hud = document.getElementById('hud');
+  if(hud) hud.remove();
+}
 
 /* makeTrial: przyjmuje bazowe SŁOWO (baseColor) i opcjonalnie wymuszony ATRAMENT (forcedInkCss) */
 function makeTrial(congruent, baseColor, forcedInkCss){
@@ -184,7 +225,9 @@ function toCSV(rows){
     var r = rows[i], line = [];
     for(var k=0;k<header.length;k++){
       var h = header[k];
-      var v = (r[h]==null ? "" : String(r[h]).replace(/"/g,'""'));
+      var v = (r[h]==null ? "" : String(r[h]).replace(/"/g,'"'));
+      // poprawka: potrójne cudzysłowy nie, zostawiamy podwójny escape
+      v = (r[h]==null ? "" : String(r[h]).replace(/"/g,'""'));
       line.push(/["\n,]/.test(v) ? '"'+v+'"' : v);
     }
     out.push(line.join(","));
@@ -241,13 +284,18 @@ function screenInstr(){
 
 async function runBlock(phase, ntrials){
   var trials = buildTrials(ntrials);
+
+  /* start HUD dla tego bloku */
+  var phaseLabel = (phase === "training") ? "Trening" : "Test";
+  updateHUD(0, ntrials, phaseLabel);
+
   for(var i=0;i<trials.length;i++){
     app.innerHTML = '<div class="fix">+</div>';
     await sleep(CONFIG.FIX);
 
     var t = trials[i];
     var start = performance.now();
-    app.innerHTML = '<div class="big" style="color:'+t.ink_color+';">'+t.stim_word+'</div>';
+    app.innerHTML = '<div class="stim-card"><div class="big" style="color:'+t.ink_color+';">'+t.stim_word+'</div></div>';
 
     var result = await new Promise(function(resolve){
       var done = false, timer;
@@ -288,6 +336,9 @@ async function runBlock(phase, ntrials){
       rt: result.rt
     });
 
+    /* aktualizacja HUD */
+    updateHUD(i+1, ntrials, phaseLabel);
+
     app.innerHTML = '';
     await sleep(CONFIG.ITI);
   }
@@ -309,6 +360,9 @@ async function finish(){
     '<h2>Koniec</h2>' +
     '<p>Dokładność (test): '+(acc*100).toFixed(1)+'%</p>' +
     '<p class="muted">Trwa zapisywanie wyników…</p>';
+
+  /* sprzątanie HUD */
+  hideHUD();
 
   if(CONFIG.ENDPOINT_URL){
     try{
