@@ -19,14 +19,13 @@
 <div id="app"></div>
 
 <script>
-// ================== KONFIG ==================
 const CONFIG = {
   TRAIN_N: 10,
   TEST_N: 50,
-  MAX_RT: 2000,  // limit odpowiedzi (ms)
-  ITI: 200,      // przerwa (ms)
-  FIX: 300,      // fiksacja (ms)
-  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec" // <- Twój URL
+  MAX_RT: 2000,
+  ITI: 200,
+  FIX: 300,
+  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec"
 };
 
 const COLORS = [
@@ -37,28 +36,27 @@ const COLORS = [
   {word:"BRĄZOWY",  css:"brown",  key:"b", idx:5}
 ];
 const INCONG_MAP = {
-  "CZERWONY":  ["green","blue","purple","brown"],
-  "ZIELONY":   ["red","blue","purple","brown"],
-  "NIEBIESKI": ["red","green","purple","brown"],
-  "FIOLETOWY": ["red","green","blue","brown"],
-  "BRĄZOWY":   ["red","green","blue","purple"]
+  "CZERWONY":["green","blue","purple","brown"],
+  "ZIELONY":["red","blue","purple","brown"],
+  "NIEBIESKI":["red","green","purple","brown"],
+  "FIOLETOWY":["red","green","blue","brown"],
+  "BRĄZOWY":["red","green","blue","purple"]
 };
 
-// =============== UTIL ===============
 const app = document.getElementById('app');
-const sleep = ms => new Promise(r=>setTimeout(r,ms));
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-function pick(arr){ return arr[Math.floor(Math.random()*(arr.length)); }
-function makeTrial(congruent=true){
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function makeTrial(congruent){
   const color = pick(COLORS);
   const word = color.word;
-  let ink = color.css, correct_key = color.key, correct_idx = color.idx, congr = 1;
+  var ink = color.css, correct_key = color.key, correct_idx = color.idx, congr = 1;
   if(!congruent){
     ink = pick(INCONG_MAP[word]);
     const byInk = COLORS.find(c=>c.css===ink);
     correct_key = byInk.key; correct_idx = byInk.idx; congr = 0;
   }
-  return { stim_word:word, ink_color:ink, congruency:congr, correct_key, correct_idx };
+  return {stim_word:word, ink_color:ink, congruency:congr, correct_key:correct_key, correct_idx:correct_idx};
 }
 function buildTrials(n){
   const half = Math.floor(n/2);
@@ -71,10 +69,10 @@ function toCSV(rows){
   if(!rows.length) return "no_data\n";
   const header = Object.keys(rows[0]);
   const lines = [header.join(",")];
-  for(const r of rows){
-    const line = header.map(h => {
-      const v = (r[h] ?? "").toString().replace(/"/g,'""');
-      return /[",\n]/.test(v) ? `"${v}"` : v;
+  for(let r of rows){
+    const line = header.map(h=>{
+      const v = (r[h]!==undefined && r[h]!==null ? String(r[h]) : "").replace(/"/g,'""');
+      return /[",\n]/.test(v) ? '"' + v + '"' : v;
     }).join(",");
     lines.push(line);
   }
@@ -90,63 +88,57 @@ function downloadCSV(filename, csv){
   a.remove();
 }
 
-// =============== APLIKACJA ===============
-let PID = "";                 // inicjały
-const LOG = [];               // wiersze z prób
+let PID = "";
+const LOG = [];
 
 function screenIntro(){
-  app.innerHTML = `
-    <h2>Badanie Stroopa (PL)</h2>
-    <div class="row"><p>Wpisz swoje inicjały (2 litery, np. AK) i naciśnij „Dalej”.</p>
-      <input id="pid" type="text" maxlength="2" placeholder="AK" autofocus>
-    </div>
-    <div class="row">
-      <button class="btn" id="next1">Dalej</button>
-    </div>`;
-  document.getElementById('next1').onclick = ()=>{
+  app.innerHTML =
+    '<h2>Badanie Stroopa (PL)</h2>' +
+    '<div class="row"><p>Wpisz swoje inicjały (2 litery, np. AK) i naciśnij „Dalej”.</p>' +
+    '<input id="pid" type="text" maxlength="2" placeholder="AK" autofocus></div>' +
+    '<div class="row"><button class="btn" id="next1">Dalej</button></div>';
+  document.getElementById('next1').onclick = function(){
     const v = (document.getElementById('pid').value||"").trim().toUpperCase();
-    if(!/^[A-ZĄĆĘŁŃÓŚŹŻ]{2}$/.test(v)) { alert("Podaj dokładnie 2 litery."); return; }
+    if(!/^[A-ZĄĆĘŁŃÓŚŹŻ]{2}$/.test(v)){ alert("Podaj dokładnie 2 litery."); return; }
     PID = v;
     screenInstr();
   };
 }
 
 function screenInstr(){
-  app.innerHTML = `
-    <p>Reaguj na <b>KOLOR CZCIONKI</b> (nie na słowo).</p>
-    <p>Klawisze: <span class="kbd">C</span>=Czerwony, <span class="kbd">Z</span>=Zielony,
-       <span class="kbd">N</span>=Niebieski, <span class="kbd">F</span>=Fioletowy, <span class="kbd">B</span>=Brązowy.</p>
-    <p>Najpierw trening (10 prób), potem test (50 prób). Limit odpowiedzi: ${CONFIG.MAX_RT/1000}s.</p>
-    <div class="row"><button class="btn" id="startTrain">Zaczynam trening</button></div>`;
-  document.getElementById('startTrain').onclick = ()=> runBlock("training", CONFIG.TRAIN_N);
+  app.innerHTML =
+    '<p>Reaguj na <b>KOLOR CZCIONKI</b> (nie na słowo).</p>' +
+    '<p>Klawisze: <span class="kbd">C</span>=Czerwony, <span class="kbd">Z</span>=Zielony, ' +
+    '<span class="kbd">N</span>=Niebieski, <span class="kbd">F</span>=Fioletowy, <span class="kbd">B</span>=Brązowy.</p>' +
+    '<p>Najpierw trening (10 prób), potem test (50 prób). Limit odpowiedzi: ' + (CONFIG.MAX_RT/1000) + 's.</p>' +
+    '<div class="row"><button class="btn" id="startTrain">Zaczynam trening</button></div>';
+  document.getElementById('startTrain').onclick = function(){ runBlock("training", CONFIG.TRAIN_N); };
 }
 
 async function runBlock(phase, ntrials){
   const trials = buildTrials(ntrials);
   for(let i=0;i<trials.length;i++){
-    // fiksacja
-    app.innerHTML = `<div class="fix">+</div>`;
+    app.innerHTML = '<div class="fix">+</div>';
     await sleep(CONFIG.FIX);
 
-    // próba
     const t = trials[i];
     const start = performance.now();
-    app.innerHTML = `<div class="big" style="color:${t.ink_color};">${t.stim_word}</div>`;
+    app.innerHTML = '<div class="big" style="color:'+t.ink_color+';">'+t.stim_word+'</div>';
 
-    const result = await new Promise(resolve=>{
-      let resolved = false;
+    const result = await new Promise(function(resolve){
+      let done = false;
       function onKey(e){
         const k = (e.key||"").toLowerCase();
-        if(["c","z","n","f","b"].includes(k)){
+        if(k==="c"||k==="z"||k==="n"||k==="f"||k==="b"){
           const rt = performance.now() - start;
           const correct = (k === t.correct_key);
           cleanup();
-          resolved = true;
+          done = true;
           resolve({key:k, status: correct?1:2, rt: Math.round(rt)});
         }
       }
       function onTimeout(){
-        if(!resolved){
+        if(!done){
           cleanup();
           resolve({key:"", status:3, rt: CONFIG.MAX_RT});
         }
@@ -161,65 +153,54 @@ async function runBlock(phase, ntrials){
 
     LOG.push({
       pid: PID,
-      phase,
+      phase: phase,
       stim_word: t.stim_word,
       ink_color: t.ink_color,
-      congruency: t.congruency,       // 1/0
-      correct_key: t.correct_key,     // c/z/n/f/b
-      correct_idx: t.correct_idx,     // 1..5
+      congruency: t.congruency,
+      correct_key: t.correct_key,
+      correct_idx: t.correct_idx,
       key: result.key,
-      status: result.status,          // 1 correct, 2 wrong, 3 timeout
-      rt: result.rt                   // ms
+      status: result.status,
+      rt: result.rt
     });
 
-    // przerwa między próbami
-    app.innerHTML = ``;
+    app.innerHTML = '';
     await sleep(CONFIG.ITI);
   }
 
-  // po bloku:
   if(phase === "training"){
-    app.innerHTML = `<p>Trening zakończony. Teraz część właściwa (${CONFIG.TEST_N} prób).</p>
-                     <div class="row"><button class="btn" id="startMain">Start testu</button></div>`;
-    document.getElementById('startMain').onclick = ()=> runBlock("main", CONFIG.TEST_N);
+    app.innerHTML = '<p>Trening zakończony. Teraz część właściwa ('+CONFIG.TEST_N+' prób).</p>' +
+                    '<div class="row"><button class="btn" id="startMain">Start testu</button></div>';
+    document.getElementById('startMain').onclick = function(){ runBlock("main", CONFIG.TEST_N); };
   } else {
     finish();
   }
 }
 
 async function finish(){
-  // prosty feedback
-  const main = LOG.filter(r=>r.phase==="main");
-  const acc = main.filter(r=>r.status===1).length / (main.length||1);
-  app.innerHTML = `<h2>Koniec</h2>
-    <p>Dokładność (test): ${(acc*100).toFixed(1)}%</p>
-    <p class="muted">Trwa zapisywanie wyników…</p>`;
+  const main = LOG.filter(function(r){ return r.phase==="main"; });
+  const acc = main.filter(function(r){ return r.status===1; }).length / (main.length||1);
+  app.innerHTML = '<h2>Koniec</h2><p>Dokładność (test): '+(acc*100).toFixed(1)+'%</p><p class="muted">Trwa zapisywanie wyników…</p>';
 
-  // --- wysyłka do Google Sheet (no-cors) ---
   if(CONFIG.ENDPOINT_URL){
     try{
       await fetch(CONFIG.ENDPOINT_URL, {
         method: "POST",
-        mode: "no-cors", // omija CORS
+        mode: "no-cors",
         headers: {"Content-Type":"text/plain;charset=utf-8"},
         body: JSON.stringify({ payload: LOG })
       });
-      // Jeśli fetch nie rzuci wyjątku, traktujemy to jako sukces:
-      app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Dane zostały przesłane — możesz zamknąć to okno.</p>`;
+      app.innerHTML = '<h2>Dziękujemy!</h2><p class="muted">Dane zostały przesłane — możesz zamknąć to okno.</p>';
       return;
-    }catch(e){
-      // w razie błędu – fallback
-    }
+    }catch(e){}
   }
 
-  // --- fallback: CSV do pobrania ---
   const csv = toCSV(LOG);
-  const fname = `stroop_pl_${PID}_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`;
+  const fname = 'stroop_pl_'+PID+'_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
   downloadCSV(fname, csv);
-  app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Pobrano plik z wynikami.</p>`;
+  app.innerHTML = '<h2>Dziękujemy!</h2><p class="muted">Pobrano plik z wynikami.</p>';
 }
 
-// start
 screenIntro();
 </script>
 </body>
