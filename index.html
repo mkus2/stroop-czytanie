@@ -15,7 +15,11 @@
   }
   #app{max-width:900px;padding:24px;text-align:center}
   h1,h2{margin:0 0 12px} p{line-height:1.5}
-  .muted{color:#555} .big{font-size:56px;line-height:1.2}
+  .muted{color:#555} .big{font-size: 72px;      /* było ~56px */
+  line-height: 1.15;
+  font-weight: 800;     /* pogrubienie */
+  -webkit-text-stroke: 1px rgba(0,0,0,0.25); /* subtelny kontur */
+  text-shadow: 0 0 1px rgba(0,0,0,0.25);}
   .fix{font-size:48px;color:#666}
   .kbd{background:#ddd;border-radius:8px;padding:6px 10px;margin:2px;display:inline-block}
   .btn{background:#2d6cdf;color:#fff;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:16px}
