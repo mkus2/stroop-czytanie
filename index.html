@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Stroop (PL) — 10 trening + 50 test (bez bibliotek)</title>
 <style>
-  html,body{height:100%} body{margin:0;background:#111;color:#eee;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center}
+  html,body{height:100%} body{margin:0;background:#e9e9e9;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center}
   #app{max-width:900px;padding:24px;text-align:center}
   h1,h2{margin:0 0 12px} p{line-height:1.5}
   .muted{color:#bbb} .big{font-size:56px;line-height:1.2} .fix{font-size:48px;color:#999}
@@ -29,18 +29,18 @@ const CONFIG = {
 };
 
 const COLORS = [
-  {word:"CZERWONY", css:"red",    key:"c", idx:1},
-  {word:"ZIELONY",  css:"green",  key:"z", idx:2},
-  {word:"NIEBIESKI",css:"blue",   key:"n", idx:3},
-  {word:"FIOLETOWY",css:"purple", key:"f", idx:4},
-  {word:"BRĄZOWY",  css:"brown",  key:"b", idx:5}
+  {word:"CZERWONY",  css:"#D32F2F", key:"c", idx:1}, // ciemna czerwień
+  {word:"ZIELONY",   css:"#2E7D32", key:"z", idx:2}, // butelkowa zieleń
+  {word:"NIEBIESKI", css:"#1565C0", key:"n", idx:3}, // intensywny niebieski
+  {word:"FIOLETOWY", css:"#6A1B9A", key:"f", idx:4}, // głęboki fiolet
+  {word:"BRĄZOWY",   css:"#6D4C41", key:"b", idx:5}
 ];
 const INCONG_MAP = {
-  "CZERWONY":["green","blue","purple","brown"],
-  "ZIELONY":["red","blue","purple","brown"],
-  "NIEBIESKI":["red","green","purple","brown"],
-  "FIOLETOWY":["red","green","blue","brown"],
-  "BRĄZOWY":["red","green","blue","purple"]
+  "CZERWONY":  ["#2E7D32","#1565C0","#6A1B9A","#6D4C41"],
+  "ZIELONY":   ["#D32F2F","#1565C0","#6A1B9A","#6D4C41"],
+  "NIEBIESKI": ["#D32F2F","#2E7D32","#6A1B9A","#6D4C41"],
+  "FIOLETOWY": ["#D32F2F","#2E7D32","#1565C0","#6D4C41"],
+  "BRĄZOWY":   ["#D32F2F","#2E7D32","#1565C0","#6A1B9A"]
 };
 
 const app = document.getElementById('app');
