@@ -46,15 +46,34 @@ const INCONG_MAP = {
 const app = document.getElementById('app');
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
-function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function pick(arr){
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 function makeTrial(congruent){
-  const color = pick(COLORS);
-  const word = color.word;
-  var ink = color.css, correct_key = color.key, correct_idx = color.idx, congr = 1;
-  if(!congruent){
+  var color = pick(COLORS);
+  var word = color.word;
+  var ink = color.css;
+  var correct_key = color.key;
+  var correct_idx = color.idx;
+  var congr = 1;
+
+  if(congruent === false){
     ink = pick(INCONG_MAP[word]);
-    const byInk = COLORS.find(c=>c.css===ink);
-    correct_key = byInk.key; correct_idx = byInk.idx; congr = 0;
+    var byInk = COLORS.find(function(c){ return c.css === ink; });
+    correct_key = byInk.key;
+    correct_idx = byInk.idx;
+    congr = 0;
+  }
+
+  return {
+    stim_word: word,
+    ink_color: ink,
+    congruency: congr,
+    correct_key: correct_key,
+    correct_idx: correct_idx
+  };
+}
+  }
   }
   return {stim_word:word, ink_color:ink, congruency:congr, correct_key:correct_key, correct_idx:correct_idx};
 }
@@ -67,16 +86,19 @@ function buildTrials(n){
 }
 function toCSV(rows){
   if(!rows.length) return "no_data\n";
-  const header = Object.keys(rows[0]);
-  const lines = [header.join(",")];
-  for(let r of rows){
-    const line = header.map(h=>{
-      const v = (r[h]!==undefined && r[h]!==null ? String(r[h]) : "").replace(/"/g,'""');
-      return /[",\n]/.test(v) ? '"' + v + '"' : v;
-    }).join(",");
-    lines.push(line);
+  var header = Object.keys(rows[0]);
+  var out = [header.join(",")];
+  for(var i=0;i<rows.length;i++){
+    var r = rows[i];
+    var line = [];
+    for(var j=0;j<header.length;j++){
+      var h = header[j];
+      var v = r[h] == null ? "" : String(r[h]).replace(/"/g,'""');
+      line.push(/["\n,]/.test(v) ? '"' + v + '"' : v);
+    }
+    out.push(line.join(","));
   }
-  return lines.join("\n");
+  return out.join("\n");
 }
 function downloadCSV(filename, csv){
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
