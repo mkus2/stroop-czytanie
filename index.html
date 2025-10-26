@@ -66,19 +66,12 @@
     border-radius:18px; padding:40px 28px; display:inline-block; min-width: min(90vw, 780px);
   }
 
-  /* HUD – licznik + pasek postępu */
-  .hud{
-    position:fixed; top:14px; left:50%; transform:translateX(-50%);
-    display:flex; align-items:center; gap:14px; z-index:50;
+  /* Wynik – proste pigułki statystyk */
+  .stats{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+  .statpill{
+    background:#fff;border:1px solid #ddd;border-radius:12px;
+    padding:8px 12px;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.06)
   }
-  .hud .badge{
-    background:#fff; color:#111; border:1px solid #ddd;
-    border-radius:999px; padding:6px 12px; font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,.06);
-  }
-  .hud .progress{
-    width:320px; height:10px; background:#e3e3e3; border-radius:999px; overflow:hidden; border:1px solid #d0d0d0;
-  }
-  .hud .bar{ height:100%; width:0%; background:#2d6cdf; transition:width .2s ease; }
 </style>
 </head>
 <body>
@@ -92,7 +85,7 @@ var CONFIG = {
   MAX_RT: 2000,
   ITI: 200,
   FIX: 300,
-  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec"
+  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec" /* Twój endpoint */
 };
 
 /* ------- KOLORY ------- */
@@ -109,25 +102,6 @@ var app = document.getElementById('app');
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-
-/* HUD helpers */
-function ensureHUD(){
-  if(document.getElementById('hud')) return;
-  var hud = document.createElement('div'); hud.id = 'hud'; hud.className = 'hud';
-  hud.innerHTML = '<span class="badge" id="hudPhase">Przygotowanie</span><div class="progress"><div class="bar" id="hudBar"></div></div><span class="badge" id="hudCount">0/0</span>';
-  document.body.appendChild(hud);
-}
-function updateHUD(done, total, phaseLabel){
-  ensureHUD();
-  var pct = total ? Math.round((done/total)*100) : 0;
-  document.getElementById('hudBar').style.width = pct + '%';
-  document.getElementById('hudCount').textContent = done + '/' + total;
-  document.getElementById('hudPhase').textContent = phaseLabel;
-}
-function hideHUD(){
-  var hud = document.getElementById('hud');
-  if(hud) hud.remove();
-}
 
 /* makeTrial: przyjmuje bazowe SŁOWO (baseColor) i opcjonalnie wymuszony ATRAMENT (forcedInkCss) */
 function makeTrial(congruent, baseColor, forcedInkCss){
@@ -225,9 +199,7 @@ function toCSV(rows){
     var r = rows[i], line = [];
     for(var k=0;k<header.length;k++){
       var h = header[k];
-      var v = (r[h]==null ? "" : String(r[h]).replace(/"/g,'"'));
-      // poprawka: potrójne cudzysłowy nie, zostawiamy podwójny escape
-      v = (r[h]==null ? "" : String(r[h]).replace(/"/g,'""'));
+      var v = (r[h]==null ? "" : String(r[h]).replace(/"/g,'""'));
       line.push(/["\n,]/.test(v) ? '"'+v+'"' : v);
     }
     out.push(line.join(","));
@@ -286,10 +258,6 @@ function screenInstr(){
 async function runBlock(phase, ntrials){
   var trials = buildTrials(ntrials);
 
-  /* start HUD dla tego bloku */
-  var phaseLabel = (phase === "training") ? "Trening" : "Test";
-  updateHUD(0, ntrials, phaseLabel);
-
   for(var i=0;i<trials.length;i++){
     app.innerHTML = '<div class="fix">+</div>';
     await sleep(CONFIG.FIX);
@@ -337,9 +305,6 @@ async function runBlock(phase, ntrials){
       rt: result.rt
     });
 
-    /* aktualizacja HUD */
-    updateHUD(i+1, ntrials, phaseLabel);
-
     app.innerHTML = '';
     await sleep(CONFIG.ITI);
   }
@@ -355,16 +320,28 @@ async function runBlock(phase, ntrials){
 }
 
 async function finish(){
+  // statystyki z części głównej
   var main = LOG.filter(function(r){ return r.phase==="main"; });
-  var acc  = main.filter(function(r){ return r.status===1; }).length / (main.length||1);
-  app.innerHTML =
-    '<h2>Koniec</h2>' +
-    '<p>Dokładność (test): '+(acc*100).toFixed(1)+'%</p>' +
-    '<p class="muted">Trwa zapisywanie wyników…</p>';
+  var total = main.length || 1;
+  var nCorrect = main.filter(function(r){ return r.status===1; }).length;
+  var nWrong   = main.filter(function(r){ return r.status===2; }).length;
+  var nTimeout = main.filter(function(r){ return r.status===3; }).length;
+  function pct(x){ return ((x/total)*100).toFixed(1); }
 
-  /* sprzątanie HUD */
-  hideHUD();
+  var summaryHTML =
+    '<div class="instr-card">'+
+      '<h3 class="center">Twój wynik</h3>'+
+      '<div class="stats">'+
+        '<span class="statpill">✅ Poprawne: '+pct(nCorrect)+'% <span class="muted">('+nCorrect+'/'+total+')</span></span>'+
+        '<span class="statpill">❌ Błędne: '+pct(nWrong)+'% <span class="muted">('+nWrong+'/'+total+')</span></span>'+
+        '<span class="statpill">⏱️ Brak odpowiedzi: '+pct(nTimeout)+'% <span class="muted">('+nTimeout+'/'+total+')</span></span>'+
+      '</div>'+
+    '</div>';
 
+  // informacja „zapisywanie…”
+  app.innerHTML = '<h2>Koniec</h2><p class="muted">Trwa zapisywanie wyników…</p>';
+
+  // próba wysyłki do Google Sheet
   if(CONFIG.ENDPOINT_URL){
     try{
       await fetch(CONFIG.ENDPOINT_URL, {
@@ -373,15 +350,16 @@ async function finish(){
         headers: {"Content-Type":"text/plain;charset=utf-8"},
         body: JSON.stringify({ payload: LOG })
       });
-      app.innerHTML = '<h2>Dziękujemy!</h2><p class="muted">Dane zostały przesłane — możesz zamknąć to okno.</p>';
+      app.innerHTML = summaryHTML + '<p class="muted center" style="margin-top:12px">Dane zostały przesłane — dziękujemy!</p>';
       return;
     }catch(e){}
   }
 
+  // fallback: CSV
   var csv = toCSV(LOG);
   var fname = 'stroop_pl_'+PID+'_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
   downloadCSV(fname, csv);
-  app.innerHTML = '<h2>Dziękujemy!</h2><p class="muted">Pobrano plik z wynikami.</p>';
+  app.innerHTML = summaryHTML + '<p class="muted center" style="margin-top:12px">Nie udało się połączyć z serwerem — pobrano plik z wynikami.</p>';
 }
 
 /* start */
