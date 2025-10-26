@@ -199,15 +199,17 @@ async function finish(){
   // wysyłka do Google Sheet (opcjonalnie)
   if(CONFIG.ENDPOINT_URL){
     try{
-      const resp = await fetch(CONFIG.ENDPOINT_URL, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({payload: LOG})
-      });
-      if(resp.ok){
-        app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Dane przesłane. Możesz zamknąć okno.</p>`;
-        return;
-      }
+      await fetch(CONFIG.ENDPOINT_URL, {
+  method: "POST",
+  mode: "no-cors", // <- kluczowe: omija CORS
+  // w trybie no-cors nie używamy application/json
+  headers: {"Content-Type":"text/plain;charset=utf-8"},
+  body: JSON.stringify({ payload: LOG })
+});
+// jeśli fetch nie rzucił błędu, traktujemy to jako sukces:
+app.innerHTML = `<h2>Dziękujemy!</h2><p class="muted">Dane zostały przesłane — możesz zamknąć to okno.</p>`;
+return;
+
     }catch(e){
       // jeśli błąd, wypadamy na CSV
     }
