@@ -89,30 +89,68 @@ function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
-function makeTrial(congruent){
-  const color = pick(COLORS);
-  const word  = color.word;
-  let   ink   = color.css;
-  let   correct_key = color.key;
-  let   correct_idx = color.idx;
-  let   congr = 1;
+function makeTrial(congruent, baseColor){
+  var color = baseColor || pick(COLORS);
+  var word  = color.word;
+  var ink   = color.css;
+  var correct_key = color.key;
+  var correct_idx = color.idx;
+  var congr = 1;
 
   if(congruent === false){
+    // wybierz atrament z listy niezgodnych dla TEGO słowa
     ink = pick(INCONG_MAP[word]);
-    const byInk = COLORS.find(c => c.css === ink);
+    var byInk = COLORS.find(function(c){ return c.css === ink; });
     correct_key = byInk.key;
     correct_idx = byInk.idx;
     congr = 0;
   }
-  return { stim_word:word, ink_color:ink, congruency:congr, correct_key:correct_key, correct_idx:correct_idx };
+
+  return {
+    stim_word: word,
+    ink_color: ink,
+    congruency: congr,
+    correct_key: correct_key,
+    correct_idx: correct_idx
+  };
 }
 
 function buildTrials(n){
-  const half = Math.floor(n/2);
-  const arr = [];
-  for(let i=0;i<half;i++) arr.push(makeTrial(true));
-  for(let i=0;i<n-half;i++) arr.push(makeTrial(false));
-  return shuffle(arr);
+  // pomocniczo: przygotuj listę kolorów powtórzonych równomiernie do 'total' sztuk
+  function balancedColorList(total){
+    var per = Math.floor(total / COLORS.length);     // pełne cykle (po 5 kolorów)
+    var rem = total % COLORS.length;                 // nadwyżka
+    var arr = [];
+    // pełne cykle
+    for(var r=0; r<per; r++){
+      for(var i=0; i<COLORS.length; i++){
+        arr.push(COLORS[i]);
+      }
+    }
+    // nadwyżkę dobieramy z przetasowanej kopii, aby nadal było „sprawiedliwie”
+    if(rem > 0){
+      var extra = COLORS.slice(0);
+      shuffle(extra);
+      for(var j=0; j<rem; j++){
+        arr.push(extra[j]);
+      }
+    }
+    return arr;
+  }
+
+  var half = Math.floor(n/2);
+  var congrColors  = balancedColorList(half);       // kolory dla kongruentnych
+  var incongColors = balancedColorList(n - half);   // kolory dla niekongruentnych
+
+  var trials = [];
+  for(var i=0;i<congrColors.length;i++){
+    trials.push(makeTrial(true,  congrColors[i]));
+  }
+  for(var k=0;k<incongColors.length;k++){
+    trials.push(makeTrial(false, incongColors[k]));
+  }
+
+  return shuffle(trials); // kolejność wciąż losowa
 }
 
 function toCSV(rows){
