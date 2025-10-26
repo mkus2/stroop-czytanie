@@ -17,7 +17,7 @@
   h1,h2{margin:0 0 12px} p{line-height:1.5}
   .muted{color:#555}
 
-  /* Bodziec: typograficzny wygląd */
+  /* Bodziec: typograficzny look */
   .big{
     font-family:'Calibri','Segoe UI',Roboto,sans-serif;
     font-size:92px;
@@ -82,10 +82,11 @@
 var CONFIG = {
   TRAIN_N: 10,
   TEST_N: 50,
-  MAX_RT: 2000,
+  MAX_RT: 2000,        /* nieużywane teraz do ucinania, zostawione dla zgodności */
   ITI: 200,
   FIX: 300,
-  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec" /* Twój endpoint */
+  SAFETY_MS: 15000,    /* miękki limit 15 s na próbę, z możliwością poprawy */
+  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbyX4swWLTPrPlE-fdU6dJjRKkUk7HViz8vj2geAof4TKSsgxvEGFQIEe1hLwMmBkIDS/exec"
 };
 
 /* ------- KOLORY ------- */
@@ -246,8 +247,12 @@ function screenInstr(){
         '<span class="keypill"><span class="k">F</span><span style="color:#6A1B9A">Fioletowy</span></span>' +
         '<span class="keypill"><span class="k">B</span><span style="color:#6D4C41">Brązowy</span></span>' +
       '</div>' +
-      '<p class="center muted">Najpierw trening (10 prób), potem test (50 prób). Limit odpowiedzi: ' + (CONFIG.MAX_RT/1000) + ' s.</p>' +
-      '<p class="center" style="color:#b22222;font-weight:700;">⚠️ Upewnij się, że <u>CAPS LOCK jest wyłączony</u> – inaczej klawisze nie będą działać poprawnie.</p>' +
+      '<p class="center muted">' +
+        'Najpierw trening (10 prób), potem test (50 prób). Odpowiadaj <b>szybko i poprawnie</b>.' +
+        ' Jeśli pomylisz się, możesz <b>od razu nacisnąć właściwy klawisz</b> — liczony jest czas do <b>pierwszej poprawnej</b> odpowiedzi.' +
+        ' Dla bezpieczeństwa każda próba ma maks. <b>15 s</b>; po tym czasie liczymy ją jako <i>brak odpowiedzi</i>.' +
+      '</p>' +
+      '<p class="center" style="color:#b22222;font-weight:700;">⚠️ Upewnij się, że <u>CAPS LOCK jest wyłączony</u>.</p>' +
       '<div class="center" style="margin-top:10px">' +
         '<button class="btn" id="startTrain">Zaczynam trening</button>' +
       '</div>' +
@@ -266,30 +271,30 @@ async function runBlock(phase, ntrials){
     var start = performance.now();
     app.innerHTML = '<div class="stim-card"><div class="big" style="color:'+t.ink_color+';">'+t.stim_word+'</div></div>';
 
+    /* --- reakcja z możliwością poprawy + bezpiecznik 15 s --- */
     var result = await new Promise(function(resolve){
-      var done = false, timer;
+      var errors = 0;      // ile błędnych klawiszy zanim padnie poprawny
+      var timer;
+
       function onKey(e){
         var k = (e.key||"").toLowerCase();
         if(k==="c"||k==="z"||k==="n"||k==="f"||k==="b"){
-          var rt = performance.now() - start;
-          var correct = (k === t.correct_key);
+          if(k !== t.correct_key){ errors++; return; }              // zła -> czekamy na poprawną
+          var rt = Math.round(performance.now() - start);           // poprawna -> kończymy próbę
           cleanup();
-          done = true;
-          resolve({key:k, status: (correct?1:2), rt: Math.round(rt)});
+          resolve({ key:k, status:1, rt:rt, errors:errors });
         }
       }
       function onTimeout(){
-        if(!done){
-          cleanup();
-          resolve({key:"", status:3, rt: CONFIG.MAX_RT});
-        }
+        cleanup();
+        resolve({ key:"", status:3, rt: CONFIG.SAFETY_MS, errors:errors });
       }
       function cleanup(){
         window.removeEventListener('keydown', onKey);
         clearTimeout(timer);
       }
       window.addEventListener('keydown', onKey);
-      timer = setTimeout(onTimeout, CONFIG.MAX_RT);
+      timer = setTimeout(onTimeout, CONFIG.SAFETY_MS);
     });
 
     LOG.push({
@@ -301,8 +306,9 @@ async function runBlock(phase, ntrials){
       correct_key: t.correct_key,
       correct_idx: t.correct_idx,
       key: result.key,
-      status: result.status,
-      rt: result.rt
+      status: result.status,              // 1=poprawnie (po ewentualnej poprawie), 3=timeout
+      rt: result.rt,                      // RT do pierwszej poprawnej (ms) lub 15000 przy timeout
+      errors_before_correct: result.errors
     });
 
     app.innerHTML = '';
@@ -323,18 +329,20 @@ async function finish(){
   // statystyki z części głównej
   var main = LOG.filter(function(r){ return r.phase==="main"; });
   var total = main.length || 1;
-  var nCorrect = main.filter(function(r){ return r.status===1; }).length;
-  var nWrong   = main.filter(function(r){ return r.status===2; }).length;
-  var nTimeout = main.filter(function(r){ return r.status===3; }).length;
+
+  var nCorrect = main.filter(function(r){ return r.status===1; }).length;           // dotarły do poprawnej
+  var nTimeout = main.filter(function(r){ return r.status===3; }).length;           // nie zdążyły w 15 s
+  var nWrong   = main.filter(function(r){ return (r.errors_before_correct||0) > 0; }).length; // miały błąd przed poprawną
+
   function pct(x){ return ((x/total)*100).toFixed(1); }
 
   var summaryHTML =
     '<div class="instr-card">'+
       '<h3 class="center">Twój wynik</h3>'+
       '<div class="stats">'+
-        '<span class="statpill">✅ Poprawne: '+pct(nCorrect)+'% <span class="muted">('+nCorrect+'/'+total+')</span></span>'+
-        '<span class="statpill">❌ Błędne: '+pct(nWrong)+'% <span class="muted">('+nWrong+'/'+total+')</span></span>'+
-        '<span class="statpill">⏱️ Brak odpowiedzi: '+pct(nTimeout)+'% <span class="muted">('+nTimeout+'/'+total+')</span></span>'+
+        '<span class="statpill">✅ Poprawne (finalnie): '+pct(nCorrect)+'% <span class="muted">('+nCorrect+'/'+total+')</span></span>'+
+        '<span class="statpill">❌ Błędny pierwszy klawisz: '+pct(nWrong)+'% <span class="muted">('+nWrong+'/'+total+')</span></span>'+
+        '<span class="statpill">⏱️ Brak odpowiedzi (15 s): '+pct(nTimeout)+'% <span class="muted">('+nTimeout+'/'+total+')</span></span>'+
       '</div>'+
     '</div>';
 
