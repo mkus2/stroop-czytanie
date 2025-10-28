@@ -100,7 +100,114 @@ var app = document.getElementById('app');
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-/* makeTrial dla Eksperymentu 1 - czytanie słów */
+
+/* ====== GENERATOR PRÓB — WERSJA ZBALANSOWANA DLA EKS. 1 ======
+   Blok 1 (test_black): każdy WYRAZ 5×, tusz czarny.
+   Blok 2 (test_color): każdy WYRAZ 5× i każdy KOLOR TUSZU 5×, zawsze niekongruentne.
+   Trening: jak było (losowy).
+   ============================================================= */
+
+/* powielanie tablicy */
+function repeatArray(arr, times){
+  var out = [];
+  for(var i=0;i<times;i++) for(var j=0;j<arr.length;j++) out.push(arr[j]);
+  return out;
+}
+
+/* derangement słów względem listy tuszy (po nazwach), zachowując liczności */
+function derangeWordsAgainstInks(inkNames, wordNames){
+  // prosty reshuffle aż do braku konfliktów (słowo != tusz w pozycji i)
+  var ok = false, perm = wordNames.slice();
+  var guard = 0;
+  while(!ok){
+    perm = shuffle(perm);
+    ok = true;
+    for(var i=0;i<perm.length;i++){
+      if(perm[i] === inkNames[i]){ ok = false; break; }
+    }
+    guard++;
+    if(guard > 10000){
+      // awaryjnie: zastosuj przesunięcie cykliczne
+      var shift = 1 + Math.floor(Math.random()*4);
+      for(var k=0;k<perm.length;k++){
+        perm[k] = wordNames[(k+shift)%wordNames.length];
+      }
+      ok = true;
+      for(var m=0;m<perm.length;m++){
+        if(perm[m] === inkNames[m]){ ok=false; break; }
+      }
+      if(ok) break;
+      guard = 0;
+    }
+  }
+  return perm;
+}
+
+/* ——— BLOK 1: zbalansowane CZARNE słowa ——— */
+function makeBalancedBlackWords(n){
+  if(n % COLORS.length !== 0){
+    throw new Error("Liczba prób (test_black) musi być wielokrotnością "+COLORS.length);
+  }
+  var reps = n / COLORS.length; // np. 25/5 = 5
+  // każdy wyraz pojawia się reps razy
+  var words = repeatArray(COLORS, reps);
+  words = shuffle(words);
+
+  return words.map(function(c){
+    return {
+      stim_word: c.word,
+      ink_color: CONFIG.BLACK_COLOR,
+      congruency: 2,          // neutralne (czarny tusz)
+      correct_key: c.key,
+      correct_idx: c.idx
+    };
+  });
+}
+
+/* ——— BLOK 2: zbalansowane KOLOROWE słowa (NIEKONGRUENTNE) ——— */
+function makeBalancedColoredWordsIncongruent(n){
+  if(n % COLORS.length !== 0){
+    throw new Error("Liczba prób (test_color) musi być wielokrotnością "+COLORS.length);
+  }
+  var reps = n / COLORS.length; // np. 25/5 = 5
+
+  // Każdy TUSZ 5×:
+  var inks = repeatArray(COLORS, reps); // lista obiektów kolorów jako tusze
+  inks = shuffle(inks);
+
+  // Każdy WYRAZ 5×:
+  var wordNamesPool = repeatArray(COLORS.map(function(c){return c.word;}), reps);
+
+  // Derangement słów względem tuszy:
+  var inkNames = inks.map(function(c){ return c.word; }); // nazwy (CZERWONY, ...)
+  var wordsDeranged = derangeWordsAgainstInks(inkNames, wordNamesPool);
+
+  // Składanie prób (niekongruentne)
+  var trials = [];
+  for(var i=0;i<n;i++){
+    var ink = inks[i];
+    var wordName = wordsDeranged[i];
+
+    // awaryjnie zabezpiecz:
+    if(wordName === ink.word){
+      var j = (i+1) % n;
+      var tmp = wordsDeranged[i]; wordsDeranged[i] = wordsDeranged[j]; wordsDeranged[j] = tmp;
+      wordName = wordsDeranged[i];
+    }
+
+    var wordObj = COLORS.find(function(c){ return c.word === wordName; });
+    trials.push({
+      stim_word: wordName,
+      ink_color: ink.css,
+      congruency: 0,          // niekongruentne
+      correct_key: wordObj.key,
+      correct_idx: wordObj.idx
+    });
+  }
+  return shuffle(trials);
+}
+
+/* makeTrial dla TRENINGU — bez zmian (losowy, może być kongruent./nie) */
 function makeTrial(blackInk, baseColor) {
   var color = baseColor || pick(COLORS);
   var word = color.word;
@@ -121,15 +228,22 @@ function makeTrial(blackInk, baseColor) {
     correct_idx: color.idx
   };
 }
-/* buildTrials - buduje próby dla treningu lub testu */
+
+/* buildTrials - buduje próby dla treningu lub testu
+   training    -> stara losowa logika (jak było)
+   forceBlack=true  -> zbalansowane czarne słowa
+   forceBlack=false -> zbalansowane kolorowe słowa (niekongruentne) */
 function buildTrials(n, forceBlack) {
   var trials = [];
   
   if(forceBlack !== undefined) {
-    for(var i = 0; i < n; i++) {
-      trials.push(makeTrial(forceBlack));
+    if(forceBlack === true){
+      trials = makeBalancedBlackWords(n);
+    } else {
+      trials = makeBalancedColoredWordsIncongruent(n);
     }
   } else {
+    // TRENING — jak było (losowo po połowie)
     var half = Math.floor(n/2);
     for(var i = 0; i < half; i++) {
       trials.push(makeTrial(true));
@@ -137,11 +251,12 @@ function buildTrials(n, forceBlack) {
     for(var i = 0; i < n - half; i++) {
       trials.push(makeTrial(false));
     }
+    shuffle(trials);
   }
   
-  shuffle(trials);
   return trials;
 }
+
 /* CSV utils */
 function toCSV(rows){
   if(!rows.length) return "no_data\n";
@@ -167,10 +282,12 @@ function downloadCSV(filename, csv){
   a.click();
   a.remove();
 }
+
 /* ------- APLIKACJA ------- */
 var PID = "";
 var LOG = [];
 var blockNumber = 0;
+
 function screenIntro(){
   app.innerHTML =
     '<h2>Eksperyment Stroopa 1 - Czytanie Słów</h2>' +
@@ -184,6 +301,7 @@ function screenIntro(){
     screenInstr();
   };
 }
+
 function screenInstr(){
   app.innerHTML =
     '<div class="instr-card">' +
@@ -210,6 +328,7 @@ function screenInstr(){
     '</div>';
   document.getElementById('startTrain').onclick = function(){ runBlock("training", CONFIG.TRAIN_N); };
 }
+
 async function runBlock(phase, ntrials){
   var trials;
   
@@ -222,12 +341,16 @@ async function runBlock(phase, ntrials){
     blockNumber = 2;
     trials = buildTrials(ntrials, false);
   }
+
   for(var i=0;i<trials.length;i++){
     app.innerHTML = '<div class="fix">+</div>';
     await sleep(CONFIG.FIX);
+
     var t = trials[i];
     var start = performance.now();
+
     app.innerHTML = '<div class="stim-card"><div class="big" style="color:'+t.ink_color+';">'+t.stim_word+'</div></div>';
+
     var result = await new Promise(function(resolve){
       var errors = 0;
       var timer;
@@ -251,6 +374,7 @@ async function runBlock(phase, ntrials){
       window.addEventListener('keydown', onKey);
       timer = setTimeout(onTimeout, CONFIG.SAFETY_MS);
     });
+
     LOG.push({
       pid: PID,
       phase: phase,
@@ -266,9 +390,11 @@ async function runBlock(phase, ntrials){
       rt: result.rt,
       errors_before_correct: result.errors
     });
+
     app.innerHTML = '';
     await sleep(CONFIG.ITI);
   }
+
   if(phase === "training"){
     app.innerHTML =
       '<div class="block-info">Trening zakończony!</div>' +
@@ -287,6 +413,7 @@ async function runBlock(phase, ntrials){
     finish();
   }
 }
+
 async function finish(){
   var testBlack = LOG.filter(function(r){ return r.phase==="test_black"; });
   var testColor = LOG.filter(function(r){ return r.phase==="test_color"; });
@@ -302,6 +429,7 @@ async function finish(){
   var rtColor = avgRT(testColor);
   var difference = rtColor - rtBlack;
   var percentIncrease = rtBlack > 0 ? ((difference / rtBlack) * 100).toFixed(1) : 0;
+
   var summaryHTML =
     '<div class="instr-card">'+
       '<h3 class="center">Twoje wyniki - Eksperyment 1 (Czytanie)</h3>'+
@@ -314,7 +442,9 @@ async function finish(){
         'W oryginalnym badaniu Stroopa różnica wynosiła tylko 2.3 s (5.6%) dla 100 słów.'+
       '</p>'+
     '</div>';
+
   app.innerHTML = '<h2>Koniec</h2><p class="muted">Trwa zapisywanie wyników…</p>';
+
   if(CONFIG.ENDPOINT_URL){
     try{
       await fetch(CONFIG.ENDPOINT_URL, {
@@ -327,11 +457,13 @@ async function finish(){
       return;
     }catch(e){}
   }
+
   var csv = toCSV(LOG);
   var fname = 'stroop_exp1_read_'+PID+'_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
   downloadCSV(fname, csv);
   app.innerHTML = summaryHTML + '<p class="muted center" style="margin-top:12px">Nie udało się połączyć z serwerem — pobrano plik z wynikami.</p>';
 }
+
 /* start */
 screenIntro();
 </script>
