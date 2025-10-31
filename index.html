@@ -18,15 +18,9 @@
   .muted{color:#555}
   .big{
     font-family:'Calibri','Segoe UI',Roboto,sans-serif;
-    font-size:92px;
-    line-height:1.02;
-    font-weight:900;
-    letter-spacing:0.5px;
-    text-transform:uppercase;
-    -webkit-text-stroke:1px rgba(0,0,0,.25);
-    text-shadow:0 0 1px rgba(0,0,0,.25);
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
+    font-size:92px; line-height:1.02; font-weight:900; letter-spacing:0.5px; text-transform:uppercase;
+    -webkit-text-stroke:1px rgba(0,0,0,.25); text-shadow:0 0 1px rgba(0,0,0,.25);
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
   }
   @media (max-width: 900px){ .big{ font-size:84px; } }
   @media (max-width: 700px){ .big{ font-size:76px; } }
@@ -37,18 +31,14 @@
   input[type=text]{font-size:18px;padding:8px 10px;border-radius:8px;border:1px solid #999;background:#fff;color:#111;letter-spacing:2px;text-transform:uppercase;text-align:center}
   .keypill{
     display:inline-flex;align-items:center;gap:8px;
-    background:#fff;color:#111;border-radius:999px;
-    padding:6px 10px;margin:6px;border:1px solid #ccc;
+    background:#fff;color:#111;border-radius:999px;padding:6px 10px;margin:6px;border:1px solid #ccc;
     font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.06);
   }
   .keypill .k{
-    display:inline-block;min-width:28px;text-align:center;
-    border:1px solid #bbb;border-radius:6px;padding:2px 6px;
-    background:#f3f3f3;font-weight:800;
+    display:inline-block;min-width:28px;text-align:center;border:1px solid #bbb;border-radius:6px;padding:2px 6px;background:#f3f3f3;font-weight:800;
   }
   .instr-card{
-    background:#fff;color:#111;border-radius:16px;padding:18px 20px;
-    border:1px solid #ddd;box-shadow:0 2px 8px rgba(0,0,0,.06);
+    background:#fff;color:#111;border-radius:16px;padding:18px 20px;border:1px solid #ddd;box-shadow:0 2px 8px rgba(0,0,0,.06);
     display:inline-block;text-align:left;
   }
   .instr-card h3{ margin:0 0 10px; font-size:22px }
@@ -59,8 +49,7 @@
     border-radius:18px; padding:40px 28px; display:inline-block; min-width: min(90vw, 780px);
   }
   .block-info{
-    background:#fff5dc;border:1px solid #dda;border-radius:8px;
-    padding:10px;margin:15px 0;font-weight:600;
+    background:#fff5dc;border:1px solid #dda;border-radius:8px;padding:10px;margin:15px 0;font-weight:600;
   }
 </style>
 </head>
@@ -75,8 +64,8 @@ var CONFIG = {
   SAFETY_MS: 15000,
   BLACK_COLOR: "#111111",
   ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbxDTaRGJYmHMss6MvILyrR3XZOUVS1HS_hgn6bHTc-rlROUWYinbBZE9qyovK5MFiTXLw/exec",
-  DOWNLOAD_CSV_FALLBACK: true,       // jeżeli wysyłka się nie powiedzie → CSV
-  SEND_TIMEOUT_MS: 7000              // timeout na wysyłkę
+  DOWNLOAD_CSV_FALLBACK: true,   // jeżeli wysyłka się nie powiedzie → CSV
+  SEND_TIMEOUT_MS: 25000         // 25 s – bufor na „zimny start” Apps Script
 };
 
 /* ------- KOLORY ------- */
@@ -90,15 +79,10 @@ var COLORS = [
 
 /* ------- UTIL ------- */
 var app = document.getElementById('app');
-function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 
-/* ====== GENERATOR PRÓB ======
-   - równy rozkład 5× każdy kolor w parze 25,
-   - brak powtórek słowa lub atramentu z rzędu,
-   - kolorowe: zawsze niekongruentne,
-   - wygładzanie granic między blokami.
-*/
+/* ====== GENERATOR PRÓB ====== */
 function fixNoImmediateRepeats(trials){
   for(var i=1;i<trials.length;i++){
     var prev = trials[i-1], cur = trials[i];
@@ -125,12 +109,13 @@ function smoothJunction(lastOfPrev, block){
   }
   return block;
 }
+/* Strumień 25 pozycji bez powtórek: losowa permutacja 5 kolorów ×5 rund */
 function makeStreamNoAdj_25(asNames){
-  var base = shuffle(COLORS.map(function(c){ return asNames ? c.word : c; }));
+  var base = shuffle(COLORS.map(c => asNames ? c.word : c));
   var out = [];
   for(var r=0;r<5;r++){
     for(var i=0;i<base.length;i++){
-      out.push(asNames ? base[i] : COLORS.find(function(c){ return c.word === base[i].word; }) || base[i]);
+      out.push(asNames ? base[i] : COLORS.find(c => c.word === base[i].word) || base[i]);
     }
   }
   return out;
@@ -138,14 +123,8 @@ function makeStreamNoAdj_25(asNames){
 function make25_BlackWords(){
   var streamWords = makeStreamNoAdj_25(true);
   return streamWords.map(function(w){
-    var c = COLORS.find(function(x){ return x.word===w; });
-    return {
-      stim_word: w,
-      ink_color: CONFIG.BLACK_COLOR,
-      congruency: 2,
-      correct_key: c.key,
-      correct_idx: c.idx
-    };
+    var c = COLORS.find(x => x.word===w);
+    return { stim_word:w, ink_color:CONFIG.BLACK_COLOR, congruency:2, correct_key:c.key, correct_idx:c.idx };
   });
 }
 function derangeBySwaps(inkNames, wordNames){
@@ -160,14 +139,14 @@ function derangeBySwaps(inkNames, wordNames){
           if(wordNames[k] !== inkNames[i] && wordNames[i] !== inkNames[k]){ j = k; break; }
         }
       }
-      if(j !== -1){ var tmp = wordNames[i]; wordNames[i] = wordNames[j]; wordNames[j] = tmp; }
+      if(j !== -1){ var tmp = wordNames[i]; wordNames[i]=wordNames[j]; wordNames[j]=tmp; }
     }
   }
   return wordNames;
 }
 function make25_ColoredIncongruent(){
   var inkStream = makeStreamNoAdj_25(false);
-  var inkNames = inkStream.map(function(c){ return c.word; });
+  var inkNames = inkStream.map(c => c.word);
   var wordsStream = makeStreamNoAdj_25(true);
   var wordsDeranged = derangeBySwaps(inkNames, wordsStream.slice());
   var trials = [];
@@ -175,41 +154,29 @@ function make25_ColoredIncongruent(){
     var ink = inkStream[i];
     var wName = wordsDeranged[i];
     if(wName === ink.word){
-      var swapIdx = (i+1) % 25;
-      var t = wordsDeranged[i]; wordsDeranged[i] = wordsDeranged[swapIdx]; wordsDeranged[swapIdx] = t;
+      var swapIdx = (i+1)%25; var t = wordsDeranged[i]; wordsDeranged[i]=wordsDeranged[swapIdx]; wordsDeranged[swapIdx]=t;
       wName = wordsDeranged[i];
     }
-    var wObj = COLORS.find(function(c){ return c.word===wName; });
-    trials.push({
-      stim_word: wName,
-      ink_color: ink.css,
-      congruency: 0,
-      correct_key: wObj.key,
-      correct_idx: wObj.idx
-    });
+    var wObj = COLORS.find(c => c.word===wName);
+    trials.push({ stim_word:wName, ink_color:ink.css, congruency:0, correct_key:wObj.key, correct_idx:wObj.idx });
   }
   return fixNoImmediateRepeats(trials);
 }
 function split13_12(pair25, lastPrev){
-  var a = pair25.slice(0,13);
-  var b = pair25.slice(13);
-  a = fixNoImmediateRepeats(a);
-  a = smoothJunction(lastPrev, a);
-  b = fixNoImmediateRepeats(b);
-  b = smoothJunction(a[a.length-1], b);
-  return { first13: a, next12: b };
+  var a = pair25.slice(0,13), b = pair25.slice(13);
+  a = fixNoImmediateRepeats(a); a = smoothJunction(lastPrev, a);
+  b = fixNoImmediateRepeats(b); b = smoothJunction(a[a.length-1], b);
+  return { first13:a, next12:b };
 }
 
 /* ------- CSV utils ------- */
 function toCSV(rows){
   if(!rows.length) return "no_data\n";
-  var header = Object.keys(rows[0]);
-  var out = [header.join(",")];
+  var header = Object.keys(rows[0]); var out = [header.join(",")];
   for(var i=0;i<rows.length;i++){
     var r = rows[i], line = [];
     for(var k=0;k<header.length;k++){
-      var h=header[k];
-      var v=(r[h]==null ? "" : String(r[h]).replace(/"/g,'""'));
+      var h=header[k]; var v=(r[h]==null ? "" : String(r[h]).replace(/"/g,'""'));
       line.push(/["\n,]/.test(v) ? '"'+v+'"' : v);
     }
     out.push(line.join(","));
@@ -218,74 +185,62 @@ function toCSV(rows){
 }
 function downloadCSV(filename, csv){
   var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-  var a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
 /* ------- APLIKACJA ------- */
-var SUBJECT = null;
-var LOG = [];
-var BLOCKS = [];
+var SUBJECT = null, LOG = [], BLOCKS = [];
 function parseSubjectCode(code){
   var m = /^([C])\s*(\d{2})$/.exec((code||"").trim().toUpperCase());
-  if(!m) return null;
-  var num = parseInt(m[2],10);
-  var isEven = (num % 2 === 0);
+  if(!m) return null; var num = parseInt(m[2],10); var isEven = (num % 2 === 0);
   return { code: m[1]+m[2], num: num, isEven: isEven };
 }
 
 /* ------- EKRANY ------- */
 function screenIntro(){
   app.innerHTML =
-    '<h2>Eksperyment Stroopa 2 — Grupa C</h2>' +
-    '<div class="row"><p>Wpisz przydzielony Tobie kod <strong>(jedna litera i dwie cyfry, np. C01)</strong> i naciśnij „Dalej”.</p>' +
-    '<input id="pid" type="text" maxlength="3" pattern="[Cc][0-9]{2}" placeholder="np. C03" autofocus></div>' +
+    '<h2>Eksperyment Stroopa 2 — Grupa C</h2>'+
+    '<div class="row"><p>Wpisz przydzielony Tobie kod <strong>(jedna litera i dwie cyfry, np. C01)</strong> i naciśnij „Dalej”.</p>'+
+    '<input id="pid" type="text" maxlength="3" pattern="[Cc][0-9]{2}" placeholder="np. C03" autofocus></div>'+
     '<div class="row"><button class="btn" id="next1">Dalej</button></div>';
   document.getElementById('next1').onclick = function(){
     var v = (document.getElementById('pid').value||"").trim().toUpperCase();
     var info = parseSubjectCode(v);
     if(!info){ alert("Nieprawidłowy kod. Użyj formatu C01..C99. (Ten link dotyczy grupy C — czytanie)"); return; }
-    SUBJECT = info;
-    screenInstr();
+    SUBJECT = info; screenInstr();
   };
 }
 function screenInstr(){
   var warn = '<p class="center" style="color:#b22222;font-weight:700;">Uwaga: ten link dotyczy czytania słów. Kontynuuj zgodnie z instrukcją.</p>';
   app.innerHTML =
-    '<div class="instr-card">' +
-      '<h3 class="center">Instrukcja — CZYTANIE SŁÓW</h3>' +
-      warn +
-      '<p class="center" style="font-size:20px;color:#d22;font-weight:700">⚠️ CZYTAJ SŁOWA, ignoruj kolor atramentu!</p>' +
-      '<p class="center">Twoim zadaniem jest jak najszybsze <b>PRZECZYTANIE SŁOWA</b> i naciśnięcie odpowiedniego klawisza.</p>' +
-      '<div class="center" style="margin:10px 0 6px">' +
-        '<span class="keypill"><span class="k">C</span>dla słowa "CZERWONY"</span>' +
-        '<span class="keypill"><span class="k">Z</span>dla "ZIELONY"</span>' +
-        '<span class="keypill"><span class="k">N</span>dla "NIEBIESKI"</span>' +
-        '<span class="keypill"><span class="k">F</span>dla "FIOLETOWY"</span>' +
-        '<span class="keypill"><span class="k">B</span>dla "BRĄZOWY"</span>' +
-      '</div>' +
-      '<p class="center" style="color:#b22222;font-weight:700;">⚠️ Upewnij się, że <u>CAPS LOCK jest wyłączony</u>.</p>' +
-      '<div class="center" style="margin-top:10px">' +
-        '<button class="btn" id="startExp">Zaczynam</button>' +
-      '</div>' +
+    '<div class="instr-card">'+
+      '<h3 class="center">Instrukcja — CZYTANIE SŁÓW</h3>'+ warn +
+      '<p class="center" style="font-size:20px;color:#d22;font-weight:700">⚠️ CZYTAJ SŁOWA, ignoruj kolor atramentu!</p>'+
+      '<p class="center">Twoim zadaniem jest jak najszybsze <b>PRZECZYTANIE SŁOWA</b> i naciśnięcie odpowiedniego klawisza.</p>'+
+      '<div class="center" style="margin:10px 0 6px">'+
+        '<span class="keypill"><span class="k">C</span>dla słowa "CZERWONY"</span>'+
+        '<span class="keypill"><span class="k">Z</span>dla "ZIELONY"</span>'+
+        '<span class="keypill"><span class="k">N</span>dla "NIEBIESKI"</span>'+
+        '<span class="keypill"><span class="k">F</span>dla "FIOLETOWY"</span>'+
+        '<span class="keypill"><span class="k">B</span>dla "BRĄZOWY"</span>'+
+      '</div>'+
+      '<p class="center" style="color:#b22222;font-weight:700;">⚠️ Upewnij się, że <u>CAPS LOCK jest wyłączony</u>.</p>'+
+      '<div class="center" style="margin-top:10px"><button class="btn" id="startExp">Zaczynam</button></div>'+
     '</div>';
   document.getElementById('startExp').onclick = prepareAndStart;
 }
 function screenPreBlock(n){
   app.innerHTML =
-    '<div class="block-info">BLOK '+n+': czytaj słowo.</div>' +
+    '<div class="block-info">BLOK '+n+': czytaj słowo.</div>'+
     '<div class="row"><button class="btn" id="startBlockBtn">Start</button></div>';
 }
 
 /* ------- SEKWENCJA BLOKÓw (ABBA/BAAB) ------- */
 function prepareAndStart(){
-  var pairC  = make25_BlackWords();
+  var pairC = make25_BlackWords();
   var pairCK = make25_ColoredIncongruent();
-  var splitC  = split13_12(pairC, null);
+  var splitC = split13_12(pairC, null);
   var splitCK = split13_12(pairCK, splitC.first13[splitC.first13.length-1]);
   if(SUBJECT.isEven){
     BLOCKS = [ splitC.first13, splitCK.first13, splitCK.next12, splitC.next12 ];
@@ -296,98 +251,72 @@ function prepareAndStart(){
     var prevLast = BLOCKS[i-1][BLOCKS[i-1].length-1];
     BLOCKS[i] = smoothJunction(prevLast, BLOCKS[i]);
   }
-  currentBlockIndex = 0;
-  screenPreBlock(1);
+  currentBlockIndex = 0; screenPreBlock(1);
   document.getElementById('startBlockBtn').onclick = function(){ runBlock(currentBlockIndex); };
 }
 
 var currentBlockIndex = 0;
 async function runBlock(blockIdx){
-  var trials = BLOCKS[blockIdx];
-  var blockNumber = blockIdx + 1;
+  var trials = BLOCKS[blockIdx]; var blockNumber = blockIdx + 1;
   for(var i=0;i<trials.length;i++){
-    app.innerHTML = '<div class="fix">+</div>';
-    await sleep(CONFIG.FIX);
-    var t = trials[i];
-    var start = performance.now();
+    app.innerHTML = '<div class="fix">+</div>'; await sleep(CONFIG.FIX);
+    var t = trials[i]; var start = performance.now();
     app.innerHTML = '<div class="stim-card"><div class="big" style="color:'+t.ink_color+';">'+t.stim_word+'</div></div>';
     var result = await new Promise(function(resolve){
-      var errors = 0;
-      var timer;
+      var errors = 0; var timer;
       function onKey(e){
         var k = (e.key||"").toLowerCase();
         if(k==="c"||k==="z"||k==="n"||k==="f"||k==="b"){
           if(k !== t.correct_key){ errors++; return; }
-          var rt = Math.round(performance.now() - start);
-          cleanup();
-          resolve({ key:k, status:1, rt:rt, errors:errors });
+          var rt = Math.round(performance.now() - start); cleanup(); resolve({ key:k, status:1, rt:rt, errors:errors });
         }
       }
-      function onTimeout(){
-        cleanup();
-        resolve({ key:"", status:3, rt: CONFIG.SAFETY_MS, errors:errors });
-      }
-      function cleanup(){
-        window.removeEventListener('keydown', onKey);
-        clearTimeout(timer);
-      }
-      window.addEventListener('keydown', onKey);
-      timer = setTimeout(onTimeout, CONFIG.SAFETY_MS);
+      function onTimeout(){ cleanup(); resolve({ key:"", status:3, rt: CONFIG.SAFETY_MS, errors:errors }); }
+      function cleanup(){ window.removeEventListener('keydown', onKey); clearTimeout(timer); }
+      window.addEventListener('keydown', onKey); timer = setTimeout(onTimeout, CONFIG.SAFETY_MS);
     });
     LOG.push({
-      subject_code: SUBJECT.code,
-      group: "READING",
-      order_even: SUBJECT.isEven,
-      phase: (t.congruency===2? "C_BLACK":"C_COLOR"),
-      block: blockNumber,
-      trial_num: i + 1,
-      stim_word: t.stim_word,
-      ink_color: t.ink_color,
-      congruency: t.congruency,
-      correct_key: t.correct_key,
-      correct_idx: t.correct_idx,
-      key: result.key,
-      status: result.status,
-      rt: result.rt,
-      errors_before_correct: result.errors
+      subject_code: SUBJECT.code, group: "READING", order_even: SUBJECT.isEven,
+      phase: (t.congruency===2? "C_BLACK":"C_COLOR"), block: blockNumber, trial_num: i + 1,
+      stim_word: t.stim_word, ink_color: t.ink_color, congruency: t.congruency,
+      correct_key: t.correct_key, correct_idx: t.correct_idx,
+      key: result.key, status: result.status, rt: result.rt, errors_before_correct: result.errors
     });
-    app.innerHTML = '';
-    await sleep(CONFIG.ITI);
+    app.innerHTML = ''; await sleep(CONFIG.ITI);
   }
   currentBlockIndex++;
   if(currentBlockIndex < BLOCKS.length){
     screenPreBlock(currentBlockIndex+1);
     document.getElementById('startBlockBtn').onclick = function(){ runBlock(currentBlockIndex); };
-  } else {
-    finish();
-  }
+  } else { finish(); }
 }
 
-/* ------- ZAKOŃCZENIE: wysyłka do Sheets (simple request) + fallback CSV ------- */
+/* ------- ZAKOŃCZENIE: wysyłka (CORS, 2 próby) + fallback CSV ------- */
 async function finish(){
-  // 1) najpierw komunikat
+  // 1) UX: najpierw informacja
   app.innerHTML = '<p class="muted">Trwa pobieranie wyników…</p>';
 
   let sentOK = false;
-
   if (CONFIG.ENDPOINT_URL) {
-    try{
-      const controller = new AbortController();
-      const t = setTimeout(function(){ controller.abort(); }, CONFIG.SEND_TIMEOUT_MS);
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), CONFIG.SEND_TIMEOUT_MS);
 
-      // ⬇️ KLUCZOWA ZMIANA: simple request (bez preflight OPTIONS)
-      const res = await fetch(CONFIG.ENDPOINT_URL, {
-        method: "POST",
-        mode: "cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" }, // ← tylko to
-        body: JSON.stringify({ payload: LOG }),
-        signal: controller.signal
-      });
+        // simple request (bez preflight): text/plain + brak custom headers
+        const res = await fetch(CONFIG.ENDPOINT_URL, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ payload: LOG }),
+          signal: controller.signal
+        });
 
-      clearTimeout(t);
-      sentOK = res && res.ok;
-    } catch(e){
-      sentOK = false;
+        clearTimeout(t);
+        if (res && res.ok) { sentOK = true; break; }
+      } catch (_) {
+        if (attempt === 1) { await sleep(800); } // krótka przerwa i druga próba
+      }
     }
   }
 
@@ -401,7 +330,6 @@ async function finish(){
   // 2) zakończone
   app.innerHTML = '<p class="muted">Pobieranie danych zakończone.</p>';
   await sleep(700);
-
   // 3) podziękowanie
   app.innerHTML = '<h2>Dziękujemy za udział w badaniu.</h2>';
 }
