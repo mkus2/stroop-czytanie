@@ -94,11 +94,10 @@ function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
 
 /* ====== GENERATOR PRÓB ======
-   Warunki:
-   - 5 kolorów, w parze bloków (13+12) równy rozkład 5× każdy.
-   - Brak powtórek słowa lub atramentu z rzędu.
-   - Bloki kolorowe: słowa zawsze niekongruentne wobec atramentu.
-   - Wygładzamy także granice między blokami.
+   - równy rozkład 5× każdy kolor w parze 25,
+   - brak powtórek słowa lub atramentu z rzędu,
+   - kolorowe: zawsze niekongruentne,
+   - wygładzanie granic między blokami.
 */
 function fixNoImmediateRepeats(trials){
   for(var i=1;i<trials.length;i++){
@@ -114,7 +113,6 @@ function fixNoImmediateRepeats(trials){
   }
   return trials;
 }
-
 function smoothJunction(lastOfPrev, block){
   if(!lastOfPrev || !block.length) return block;
   if(block[0].stim_word === lastOfPrev.stim_word || block[0].ink_color === lastOfPrev.ink_color){
@@ -127,81 +125,56 @@ function smoothJunction(lastOfPrev, block){
   }
   return block;
 }
-
-/* Strumień 25 pozycji bez powtórek: wybierz losową permutację 5 kolorów i powtórz 5 razy */
 function makeStreamNoAdj_25(asNames){
-  var base = shuffle(COLORS.map(function(c){ return asNames ? c.word : c; })); // 5 unikalnych
+  var base = shuffle(COLORS.map(function(c){ return asNames ? c.word : c; }));
   var out = [];
   for(var r=0;r<5;r++){
     for(var i=0;i<base.length;i++){
       out.push(asNames ? base[i] : COLORS.find(function(c){ return c.word === base[i].word; }) || base[i]);
     }
   }
-  return out; // brak powtórek sąsiadów gwarantowany
+  return out;
 }
-
-/* 25 czarnych słów: 5× każdy, brak powtórek słów */
 function make25_BlackWords(){
-  var streamWords = makeStreamNoAdj_25(true); // nazwy słów
-  var trials = streamWords.map(function(w){
+  var streamWords = makeStreamNoAdj_25(true);
+  return streamWords.map(function(w){
     var c = COLORS.find(function(x){ return x.word===w; });
     return {
       stim_word: w,
       ink_color: CONFIG.BLACK_COLOR,
-      congruency: 2,         // neutral
-      correct_key: c.key,    // czytanie → klawisz wg SŁOWA
+      congruency: 2,
+      correct_key: c.key,
       correct_idx: c.idx
     };
   });
-  return trials;
 }
-
-/* Derangement: popraw aby word[i] != ink[i] (inkNames to nazwy słów odpowiadające atramentom) */
 function derangeBySwaps(inkNames, wordNames){
-  // zakładamy równe długości 25
   for(var i=0;i<wordNames.length;i++){
     if(wordNames[i] === inkNames[i]){
-      // znajdź j do zamiany
       var j = -1;
       for(var k=i+1;k<wordNames.length;k++){
-        if(wordNames[k] !== inkNames[i] && wordNames[i] !== inkNames[k]){
-          j = k; break;
-        }
+        if(wordNames[k] !== inkNames[i] && wordNames[i] !== inkNames[k]){ j = k; break; }
       }
       if(j === -1){
         for(k=0;k<i;k++){
-          if(wordNames[k] !== inkNames[i] && wordNames[i] !== inkNames[k]){
-            j = k; break;
-          }
+          if(wordNames[k] !== inkNames[i] && wordNames[i] !== inkNames[k]){ j = k; break; }
         }
       }
-      if(j !== -1){
-        var tmp = wordNames[i]; wordNames[i] = wordNames[j]; wordNames[j] = tmp;
-      }
+      if(j !== -1){ var tmp = wordNames[i]; wordNames[i] = wordNames[j]; wordNames[j] = tmp; }
     }
   }
   return wordNames;
 }
-
-/* 25 kolorowych słów: brak powtórek atramentu i słowa, niekongruentne, równy rozkład */
 function make25_ColoredIncongruent(){
-  // atramenty (strumień obiektów kolorów)
-  var inkStream = makeStreamNoAdj_25(false);              // 25 obiektów COLOR, brak powtórek atramentu
+  var inkStream = makeStreamNoAdj_25(false);
   var inkNames = inkStream.map(function(c){ return c.word; });
-
-  // słowa (nazwy) w osobnym porządku bez powtórek
-  var wordsStream = makeStreamNoAdj_25(true);             // 25 nazw słów, brak powtórek słowa
-
-  // zderanguj aby każdy indeks był niekongruentny
+  var wordsStream = makeStreamNoAdj_25(true);
   var wordsDeranged = derangeBySwaps(inkNames, wordsStream.slice());
-
-  // złóż próby
   var trials = [];
   for(var i=0;i<25;i++){
     var ink = inkStream[i];
     var wName = wordsDeranged[i];
     if(wName === ink.word){
-      // ostateczne zabezpieczenie (nie powinno zajść)
       var swapIdx = (i+1) % 25;
       var t = wordsDeranged[i]; wordsDeranged[i] = wordsDeranged[swapIdx]; wordsDeranged[swapIdx] = t;
       wName = wordsDeranged[i];
@@ -210,16 +183,13 @@ function make25_ColoredIncongruent(){
     trials.push({
       stim_word: wName,
       ink_color: ink.css,
-      congruency: 0,          // niekongruentne
-      correct_key: wObj.key,  // czytanie → klawisz wg SŁOWA
+      congruency: 0,
+      correct_key: wObj.key,
       correct_idx: wObj.idx
     });
   }
-  // oba strumienie już były bez powtórek, ale dla pewności:
   return fixNoImmediateRepeats(trials);
 }
-
-/* podział 25 na (13,12) z wygładzaniem granic */
 function split13_12(pair25, lastPrev){
   var a = pair25.slice(0,13);
   var b = pair25.slice(13);
@@ -257,7 +227,7 @@ function downloadCSV(filename, csv){
 }
 
 /* ------- APLIKACJA ------- */
-var SUBJECT = null;   // {code, num, isEven}
+var SUBJECT = null;
 var LOG = [];
 var BLOCKS = [];
 function parseSubjectCode(code){
@@ -283,7 +253,6 @@ function screenIntro(){
     screenInstr();
   };
 }
-
 function screenInstr(){
   var warn = '<p class="center" style="color:#b22222;font-weight:700;">Uwaga: ten link dotyczy czytania słów. Kontynuuj zgodnie z instrukcją.</p>';
   app.innerHTML =
@@ -306,57 +275,42 @@ function screenInstr(){
     '</div>';
   document.getElementById('startExp').onclick = prepareAndStart;
 }
-
 function screenPreBlock(n){
   app.innerHTML =
     '<div class="block-info">BLOK '+n+': czytaj słowo.</div>' +
     '<div class="row"><button class="btn" id="startBlockBtn">Start</button></div>';
 }
 
-/* ------- SEKWENCJA BLOKÓW (ABBA/BAAB) ------- */
+/* ------- SEKWENCJA BLOKÓw (ABBA/BAAB) ------- */
 function prepareAndStart(){
-  // budujemy pary po 25: C (czarne) i CK (kolorowe niekongruentne), bez powtórek
   var pairC  = make25_BlackWords();
   var pairCK = make25_ColoredIncongruent();
-
-  // podział (13,12) i wygładzanie
   var splitC  = split13_12(pairC, null);
   var splitCK = split13_12(pairCK, splitC.first13[splitC.first13.length-1]);
-
-  // ABBA/BAAB wg parzystości kodu
   if(SUBJECT.isEven){
-    // C-13 → CK-13 → CK-12 → C-12
     BLOCKS = [ splitC.first13, splitCK.first13, splitCK.next12, splitC.next12 ];
   } else {
-    // CK-13 → C-13 → C-12 → CK-12
     BLOCKS = [ splitCK.first13, splitC.first13, splitC.next12, splitCK.next12 ];
   }
-
-  // dodatkowe wygładzenie granic
   for(var i=1;i<BLOCKS.length;i++){
     var prevLast = BLOCKS[i-1][BLOCKS[i-1].length-1];
     BLOCKS[i] = smoothJunction(prevLast, BLOCKS[i]);
   }
-
   currentBlockIndex = 0;
   screenPreBlock(1);
   document.getElementById('startBlockBtn').onclick = function(){ runBlock(currentBlockIndex); };
 }
 
 var currentBlockIndex = 0;
-
 async function runBlock(blockIdx){
   var trials = BLOCKS[blockIdx];
   var blockNumber = blockIdx + 1;
-
   for(var i=0;i<trials.length;i++){
     app.innerHTML = '<div class="fix">+</div>';
     await sleep(CONFIG.FIX);
-
     var t = trials[i];
     var start = performance.now();
     app.innerHTML = '<div class="stim-card"><div class="big" style="color:'+t.ink_color+';">'+t.stim_word+'</div></div>';
-
     var result = await new Promise(function(resolve){
       var errors = 0;
       var timer;
@@ -380,7 +334,6 @@ async function runBlock(blockIdx){
       window.addEventListener('keydown', onKey);
       timer = setTimeout(onTimeout, CONFIG.SAFETY_MS);
     });
-
     LOG.push({
       subject_code: SUBJECT.code,
       group: "READING",
@@ -398,11 +351,9 @@ async function runBlock(blockIdx){
       rt: result.rt,
       errors_before_correct: result.errors
     });
-
     app.innerHTML = '';
     await sleep(CONFIG.ITI);
   }
-
   currentBlockIndex++;
   if(currentBlockIndex < BLOCKS.length){
     screenPreBlock(currentBlockIndex+1);
@@ -412,47 +363,46 @@ async function runBlock(blockIdx){
   }
 }
 
-/* ------- ZAKOŃCZENIE: wysyłka do Sheets z fallbackiem CSV ------- */
+/* ------- ZAKOŃCZENIE: wysyłka do Sheets (simple request) + fallback CSV ------- */
 async function finish(){
-  // 1) komunikat „trwa pobieranie wyników…”
+  // 1) najpierw komunikat
   app.innerHTML = '<p class="muted">Trwa pobieranie wyników…</p>';
 
-  var sentOK = false;
+  let sentOK = false;
 
-  // próbujemy wysłać do Apps Script (CORS; oczekujemy statusu 200)
   if (CONFIG.ENDPOINT_URL) {
     try{
       const controller = new AbortController();
       const t = setTimeout(function(){ controller.abort(); }, CONFIG.SEND_TIMEOUT_MS);
 
+      // ⬇️ KLUCZOWA ZMIANA: simple request (bez preflight OPTIONS)
       const res = await fetch(CONFIG.ENDPOINT_URL, {
         method: "POST",
         mode: "cors",
-        headers: {"Content-Type":"application/json"},
+        headers: { "Content-Type": "text/plain;charset=utf-8" }, // ← tylko to
         body: JSON.stringify({ payload: LOG }),
         signal: controller.signal
       });
+
       clearTimeout(t);
-      // sukces, jeśli 200..299
       sentOK = res && res.ok;
-    }catch(e){
+    } catch(e){
       sentOK = false;
     }
   }
 
   if (!sentOK && CONFIG.DOWNLOAD_CSV_FALLBACK){
-    // fallback: przygotuj i pobierz CSV
-    var csv = toCSV(LOG);
-    var fname = 'stroop_czytanie_'+SUBJECT.code+'_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
+    const csv = toCSV(LOG);
+    const fname = 'stroop_czytanie_'+SUBJECT.code+'_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
     await sleep(300);
     downloadCSV(fname, csv);
   }
 
-  // 2) „pobieranie danych zakończone.”
+  // 2) zakończone
   app.innerHTML = '<p class="muted">Pobieranie danych zakończone.</p>';
   await sleep(700);
 
-  // 3) „dziękujemy…”
+  // 3) podziękowanie
   app.innerHTML = '<h2>Dziękujemy za udział w badaniu.</h2>';
 }
 
