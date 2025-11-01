@@ -51,6 +51,7 @@
   .block-info{
     background:#fff5dc;border:1px solid #dda;border-radius:8px;padding:10px;margin:15px 0;font-weight:600;
   }
+  .progress{color:#2d6cdf;font-weight:600;margin-top:8px}
 </style>
 </head>
 <body>
@@ -63,9 +64,9 @@ var CONFIG = {
   FIX: 300,
   SAFETY_MS: 15000,
   BLACK_COLOR: "#111111",
-  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbxDTaRGJYmHMss6MvILyrR3XZOUVS1HS_hgn6bHTc-rlROUWYinbBZE9qyovK5MFiTXLw/exec",
-  DOWNLOAD_CSV_FALLBACK: true,   // jeżeli wysyłka się nie powiedzie → CSV
-  SEND_TIMEOUT_MS: 25000         // 25 s – bufor na „zimny start” Apps Script
+  ENDPOINT_URL: "https://script.google.com/macros/s/AKfycbxLToW0bWfIpFl6iFhJYAeVkZ6_O94yguDE7y1m6uCwi9GJY3gJ7DQ3NQTK-J6UhTmsNA/exec",
+  DOWNLOAD_CSV_FALLBACK: true,
+  SEND_TIMEOUT_MS: 10000
 };
 
 /* ------- KOLORY ------- */
@@ -109,7 +110,6 @@ function smoothJunction(lastOfPrev, block){
   }
   return block;
 }
-/* Strumień 25 pozycji bez powtórek: losowa permutacja 5 kolorów ×5 rund */
 function makeStreamNoAdj_25(asNames){
   var base = shuffle(COLORS.map(c => asNames ? c.word : c));
   var out = [];
@@ -201,7 +201,7 @@ function parseSubjectCode(code){
 function screenIntro(){
   app.innerHTML =
     '<h2>Eksperyment Stroopa 2 — Grupa C</h2>'+
-    '<div class="row"><p>Wpisz przydzielony Tobie kod <strong>(jedna litera i dwie cyfry, np. C01)</strong> i naciśnij „Dalej”.</p>'+
+    '<div class="row"><p>Wpisz przydzielony Tobie kod <strong>(jedna litera i dwie cyfry, np. C01)</strong> i naciśnij „Dalej".</p>'+
     '<input id="pid" type="text" maxlength="3" pattern="[Cc][0-9]{2}" placeholder="np. C03" autofocus></div>'+
     '<div class="row"><button class="btn" id="next1">Dalej</button></div>';
   document.getElementById('next1').onclick = function(){
@@ -291,46 +291,58 @@ async function runBlock(blockIdx){
   } else { finish(); }
 }
 
-/* ------- ZAKOŃCZENIE: wysyłka (CORS, 2 próby) + fallback CSV ------- */
+/* ------- ZAKOŃCZENIE ------- */
 async function finish(){
-  // 1) UX: najpierw informacja
-  app.innerHTML = '<p class="muted">Trwa pobieranie wyników…</p>';
+  app.innerHTML = '<p class="muted">Przygotowywanie wyników…</p>';
+  await sleep(300);
 
   let sentOK = false;
+  
   if (CONFIG.ENDPOINT_URL) {
     for (let attempt = 1; attempt <= 2; attempt++) {
+      app.innerHTML = '<p class="muted">Wysyłanie danych do arkusza…</p><p class="progress">Próba ' + attempt + '/2</p>';
+      
+      console.log('🚀 Wysyłka próba', attempt);
+      const startTime = performance.now();
+      
       try {
-        const controller = new AbortController();
-        const t = setTimeout(() => controller.abort(), CONFIG.SEND_TIMEOUT_MS);
-
-        // simple request (bez preflight): text/plain + brak custom headers
-        const res = await fetch(CONFIG.ENDPOINT_URL, {
+        const fetchPromise = fetch(CONFIG.ENDPOINT_URL, {
           method: "POST",
-          mode: "cors",
+          mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ payload: LOG }),
-          signal: controller.signal
+          body: JSON.stringify({ payload: LOG })
         });
-
-        clearTimeout(t);
-        if (res && res.ok) { sentOK = true; break; }
-      } catch (_) {
-        if (attempt === 1) { await sleep(800); } // krótka przerwa i druga próba
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), CONFIG.SEND_TIMEOUT_MS)
+        );
+        
+        await Promise.race([fetchPromise, timeoutPromise]);
+        
+        const elapsed = Math.round(performance.now() - startTime);
+        console.log('✅ Wysłano w', elapsed + 'ms');
+        sentOK = true;
+        break;
+        
+      } catch (err) {
+        const elapsed = Math.round(performance.now() - startTime);
+        console.log('❌ Błąd próba', attempt, '- czas:', elapsed + 'ms', '- błąd:', err.message);
+        if (attempt === 1) { await sleep(800); }
       }
     }
   }
 
   if (!sentOK && CONFIG.DOWNLOAD_CSV_FALLBACK){
+    console.log('📥 Pobieranie CSV jako backup');
+    app.innerHTML = '<p class="muted">Pobieranie pliku CSV…</p>';
     const csv = toCSV(LOG);
     const fname = 'stroop_czytanie_'+SUBJECT.code+'_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
     await sleep(300);
     downloadCSV(fname, csv);
   }
 
-  // 2) zakończone
-  app.innerHTML = '<p class="muted">Pobieranie danych zakończone.</p>';
-  await sleep(700);
-  // 3) podziękowanie
+  app.innerHTML = '<p class="muted">Zakończono.</p>';
+  await sleep(500);
   app.innerHTML = '<h2>Dziękujemy za udział w badaniu.</h2>';
 }
 
